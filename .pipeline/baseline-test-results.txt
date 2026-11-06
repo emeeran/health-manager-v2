@@ -1,0 +1,28 @@
+    expires_at=datetime.utcnow() - timedelta(days=2),
+
+tests/test_deferred_parity.py::test_smart_report_stream_and_latest
+tests/test_insights_family.py::test_latest_rejects_unknown_kind
+  /home/em/code/health-manager-v2/backend/app/routers/reports.py:155: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    kind = _resolve_kind(kind)
+
+tests/test_records_breadth.py::test_condition_course_invariants
+  /home/em/code/health-manager-v2/backend/app/routers/conditions.py:146: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    _validate_course(condition)
+
+tests/test_types_and_alembic.py::test_alembic_upgrade_head_is_idempotent
+tests/test_types_and_alembic.py::test_alembic_upgrade_head_is_idempotent
+  /home/em/code/health-manager-v2/backend/.venv/lib/python3.12/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_ops_jobs.py::test_scheduler_lock_exclusive_and_lazy - Asser...
+1 failed, 306 passed, 20 warnings in 166.68s (0:02:46)
+
+=== BASELINE SUMMARY (2026-11-05) ===
+Backend: 306 passed, 1 failed.
+The 1 failure (tests/test_ops_jobs.py::test_scheduler_lock_exclusive_and_lazy)
+is an environment artifact: a dev server (uvicorn --reload --port 8002, worker
+PID 255764) holds the flock on backend/data/scheduler.lock, so the test cannot
+acquire it. Not a code regression — do not count as baseline red.
+Frontend (vitest): 128 passed (29 files), all green.

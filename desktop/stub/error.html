@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Family Health Manager v2 — startup failed</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        height: 100vh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 12px;
+        background: #1a2b42; color: #e8edf4; padding: 32px;
+      }
+      h1 { font-size: 18px; color: #ff8a80; }
+      p { font-size: 14px; color: #9fb3cc; text-align: center; }
+      pre {
+        background: #12203200; background: #122032; color: #9fb3cc;
+        font-size: 12px; padding: 12px; border-radius: 8px;
+        max-width: 720px; max-height: 40vh; overflow: auto;
+        white-space: pre-wrap;
+      }
+      button {
+        padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer;
+        font-size: 14px;
+      }
+      #retry { background: #4da3ff; color: #0a1628; }
+      #quit { background: transparent; color: #9fb3cc; }
+    </style>
+  </head>
+  <body>
+    <h1>The local server didn't start</h1>
+    <p>Your data is safe. The log below may explain why.</p>
+    <pre id="log">loading…</pre>
+    <div>
+      <button id="retry">Retry</button>
+      <button id="quit">Quit</button>
+    </div>
+    <script>
+      async function invoke(cmd) {
+        return window.__TAURI_INTERNALS__.invoke(cmd);
+      }
+      invoke("get_boot_log")
+        .then((log) => (document.getElementById("log").textContent = log.slice(-4096) || "(empty)"))
+        .catch(() => (document.getElementById("log").textContent = "(log unavailable)"));
+      document.getElementById("retry").onclick = () => invoke("retry_backend");
+      document.getElementById("quit").onclick = () => invoke("quit_app");
+    </script>
+  </body>
+</html>

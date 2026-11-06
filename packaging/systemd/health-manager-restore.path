@@ -1,0 +1,9 @@
+[Unit]
+Description=Family Health Manager v2 — restore request watcher
+
+[Path]
+PathChanged=/var/lib/health-manager/data/.restore-request
+Unit=health-manager-restore.service
+
+[Install]
+WantedBy=multi-user.target

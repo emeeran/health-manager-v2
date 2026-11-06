@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.985 0.002 247.839);
+  --foreground: oklch(0.208 0.042 265.755);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --primary: oklch(0.6 0.118 184.704);
+  --primary-foreground: oklch(0.984 0.019 200.873);
+  --danger: oklch(0.577 0.245 27.325);
+  --danger-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-foreground: oklch(0.279 0.077 45.635);
+  --ring: oklch(0.6 0.118 184.704);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.183 0.027 264.056);
+  --foreground: oklch(0.968 0.007 247.896);
+  --card: oklch(0.229 0.034 264.064);
+  --card-foreground: oklch(0.968 0.007 247.896);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --primary: oklch(0.704 0.14 182.503);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --danger: oklch(0.704 0.191 22.216);
+  --danger-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.828 0.189 84.429);
+  --warning-foreground: oklch(0.279 0.077 45.635);
+  --ring: oklch(0.704 0.14 182.503);
+}
+
+/* Sepia theme — aged-paper reading mode (ported from v1). Applied as the
+ * "sepia" class on <html> by the pre-paint bootstrap in index.html and
+ * Settings → General; falls through to :root for anything not overridden. */
+.sepia {
+  color-scheme: light;
+  --background: #f4ecdc;
+  --foreground: #33281a;
+  --card: #faf5ea;
+  --card-foreground: #33281a;
+  --muted: #ece1cb;
+  --muted-foreground: #63513c;
+  --border: #d2c29a;
+  --input: #cbb98d;
+  --primary: #8a5a2b;
+  --primary-foreground: #faf5ea;
+  --danger: #a33a2a;
+  --danger-foreground: #faf5ea;
+  --warning: #b45309;
+  --warning-foreground: #faf5ea;
+  --ring: #8a5a2b;
+}
+
+/* Grey theme — neutral low-glare light mode: the surface + text ramp is
+ * desaturated to grey and sits ~30% darker than light, so borders and muted
+ * text hold AA against the near-black ink. Accent hue is dropped one step
+ * deeper (c2410c) so white-on-primary stays readable. */
+.grey {
+  color-scheme: light;
+  --background: #d6d6d8;
+  --foreground: #101014;
+  --card: #e6e6e8;
+  --card-foreground: #101014;
+  --muted: #d0d0d4;
+  --muted-foreground: #3a3a44;
+  --border: #a8a8b0;
+  --input: #9a9aa2;
+  --primary: #c2410c;
+  --primary-foreground: #ffffff;
+  --danger: #b91c1c;
+  --danger-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --ring: #c2410c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-ring: var(--ring);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  /* Tamil (ta) and Devanagari (hi) fallbacks so localized UI renders even on
+     systems whose default sans stack lacks those scripts (WebKitGTK). */
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Noto Sans", "Noto Sans Tamil",
+    "Noto Sans Devanagari", "Lohit Tamil", "Lohit Devanagari", sans-serif;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+/* Printable cards (medicine schedule, emergency card): keep brand colors and
+   tight page margins in print output. */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

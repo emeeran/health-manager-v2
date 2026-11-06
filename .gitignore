@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+dist/
+build/
+
+# Node
+node_modules/
+coverage/
+tsconfig.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
+
+# Runtime data & secrets
+data/
+# ...except bundled package data (CDC growth reference CSVs)
+!backend/app/data/
+!backend/app/data/**
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.local
+frontend/dist/
+
+# Desktop
+desktop/binaries/*
+!desktop/binaries/.gitkeep
+desktop/target/
+desktop/gen/
+
+# OS
+.DS_Store
+
+# Local scratch / brand source material — not part of the app.
+/media/
+/docs/assets/
+
+# local source doc, never track
+/docs/Drug Schedule.pdf
+.pipeline/

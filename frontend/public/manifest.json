@@ -1,0 +1,25 @@
+{
+  "name": "Family Health Manager",
+  "short_name": "FHM",
+  "description": "Self-hosted family health records with AI-powered insights",
+  "start_url": "/",
+  "id": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#f7f8f9",
+  "theme_color": "#0d9488",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["health", "medical", "productivity"]
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Family Health Manager v2</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        height: 100vh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 16px;
+        background: #1a2b42; color: #e8edf4;
+      }
+      .cross {
+        width: 64px; height: 64px; position: relative;
+      }
+      .cross::before, .cross::after {
+        content: ""; position: absolute; background: #4da3ff; border-radius: 8px;
+      }
+      .cross::before { left: 24px; top: 0; width: 16px; height: 64px; }
+      .cross::after { top: 24px; left: 0; width: 64px; height: 16px; }
+      h1 { font-size: 20px; font-weight: 600; }
+      .status { font-size: 14px; color: #9fb3cc; }
+      .bar {
+        width: 220px; height: 4px; background: #24384f; border-radius: 2px;
+        overflow: hidden;
+      }
+      .bar span {
+        display: block; height: 100%; width: 40%; background: #4da3ff;
+        border-radius: 2px; animation: slide 1.2s ease-in-out infinite;
+      }
+      @keyframes slide { 0% { transform: translateX(-100%);} 100% { transform: translateX(550%);} }
+    </style>
+  </head>
+  <body>
+    <div class="cross"></div>
+    <h1>Family Health Manager v2</h1>
+    <div class="status" id="status">Starting local server…</div>
+    <div class="bar"><span></span></div>
+    <script>
+      // The Rust shell navigates away when the backend is ready.
+      setTimeout(() => {
+        document.getElementById("status").textContent =
+          "First start can take a minute…";
+      }, 8000);
+    </script>
+  </body>
+</html>

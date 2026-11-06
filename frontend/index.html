@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" class="h-full antialiased">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Family Health Manager v2</title>
+    <meta
+      name="description"
+      content="Self-hosted family health records with AI-powered insights"
+    />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Family Health Manager" />
+    <script>
+      // Anti-flash theme bootstrap (ported from v1): runs BEFORE first paint
+      // so the correct theme class is already on <html> when CSS applies.
+      //
+      // localStorage is primary, but WebKitGTK (the desktop webview)
+      // occasionally loses it across restarts — so a mirror cookie is
+      // consulted as a fallback. The app never follows the OS appearance: a
+      // theme, once chosen, is pinned until the user picks another. A missing
+      // OR legacy "system" value is resolved against prefers-color-scheme
+      // exactly once — here — and then persisted, so later OS light/dark
+      // flips never change the app.
+      (function () {
+        var fromStorage = null;
+        var fromCookie = null;
+        try {
+          fromStorage = localStorage.getItem("theme");
+          if (fromStorage === null) fromStorage = localStorage.getItem("fhm-theme");
+        } catch (e) {}
+        try {
+          var m = document.cookie.match(/(?:^|; )theme=([^;]*)/);
+          fromCookie = m ? decodeURIComponent(m[1]) : null;
+        } catch (e) {}
+        var VALID = ["light", "sepia", "grey", "dark"];
+        var theme =
+          VALID.indexOf(fromStorage) !== -1 && fromStorage !== "system"
+            ? fromStorage
+            : VALID.indexOf(fromCookie) !== -1 && fromCookie !== "system"
+              ? fromCookie
+              : null;
+        if (!theme) {
+          theme =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        }
+        // Keep both mirrors in agreement with the pinned choice.
+        try {
+          if (theme !== fromStorage) localStorage.setItem("theme", theme);
+        } catch (e) {}
+        try {
+          if (theme !== fromCookie) {
+            document.cookie =
+              "theme=" +
+              encodeURIComponent(theme) +
+              "; max-age=31536000; path=/; SameSite=Strict";
+          }
+        } catch (e) {}
+        if (theme === "dark" || theme === "sepia" || theme === "grey") {
+          document.documentElement.classList.add(theme);
+        }
+      })();
+    </script>
+  </head>
+  <body class="min-h-full">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

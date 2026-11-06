@@ -1,0 +1,30 @@
+# Lefthook — pre-commit & pre-push hooks. Install: lefthook install
+pre-commit:
+  parallel: true
+  commands:
+    frontend-lint:
+      root: "frontend/"
+      glob: "*.{ts,tsx}"
+      run: npx eslint {staged_files}
+    backend-lint:
+      root: "backend/"
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    frontend-format:
+      root: "frontend/"
+      glob: "*.{ts,tsx,json,css}"
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    backend-typecheck:
+      root: "backend/"
+      run: uv run mypy app/
+    backend-test:
+      root: "backend/"
+      run: uv run pytest -x -q
+    frontend-typecheck:
+      root: "frontend/"
+      run: npx tsc --noEmit

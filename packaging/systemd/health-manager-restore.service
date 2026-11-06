@@ -1,0 +1,8 @@
+[Unit]
+Description=Family Health Manager v2 — privileged archive restore
+# Deliberately NO After/Requires on health-manager.service: this unit must
+# be free to stop and start the app.
+
+[Service]
+Type=oneshot
+ExecStart=/opt/health-manager/bin/restore-archive.sh

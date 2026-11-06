@@ -1,0 +1,64 @@
+# Family Health Manager v2 — reverse proxy
+# Plain HTTP on :{$PORT:8080} by default (localhost use, or behind an
+# external TLS terminator). For automatic HTTPS, replace the site address
+# with your domain:  health.example.com { ... }
+# (HSTS in the header block then takes effect.)
+
+{
+	admin off
+}
+
+:{$PORT:8080}
+
+# AI-generation SSE routes need unbuffered streaming.
+(stream_proxy) {
+	reverse_proxy 127.0.0.1:8000 {
+		flush_interval -1
+		transport http {
+			read_timeout 600s
+			write_timeout 600s
+		}
+	}
+}
+
+(backend_proxy) {
+	reverse_proxy 127.0.0.1:8000 {
+		dial_timeout 3s
+		health_uri /api/v1/health
+		health_interval 30s
+		health_timeout 3s
+	}
+}
+
+@streams path /api/v1/members/*/records/extract/stream /api/v1/conversations/*/messages/stream
+handle @streams {
+	import stream_proxy
+}
+
+handle /api/* {
+	import backend_proxy
+}
+
+handle /health* {
+	import backend_proxy
+}
+
+handle {
+	root * /opt/health-manager/frontend/dist
+	try_files {path} /index.html
+	file_server
+
+	@index path /index.html /
+	header @index Cache-Control "no-cache"
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+
+	encode gzip zstd
+
+	header {
+		-X-Frame-Options SAMEORIGIN
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+}

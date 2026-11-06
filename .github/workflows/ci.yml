@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  version-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check version alignment across packages
+        run: |
+          BACKEND=$(grep -oP '^version = "\K[^"]+' backend/pyproject.toml)
+          FRONTEND=$(grep -oP '"version": "\K[^"]+' frontend/package.json)
+          DESKTOP=$(grep -oP '"version": "\K[^"]+' desktop/tauri.conf.json)
+          echo "backend=$BACKEND frontend=$FRONTEND desktop=$DESKTOP"
+          if [ "$BACKEND" != "$FRONTEND" ] || [ "$BACKEND" != "$DESKTOP" ]; then
+            echo "::error::Versions diverge — bump all three together (pyproject.toml is the source of truth; make sync-version)"
+            exit 1
+          fi
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy app/
+
+      - name: Test
+        # Coverage ratchet: measured 89% (2026-11-02, post phase 10) — floor
+        # sits 1pt under. Raise as coverage grows; never lower.
+        run: uv run pytest tests/ -q --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=88
+
+      - name: Security scan
+        run: uv run pip-audit
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        # Coverage thresholds in vitest.config.ts — ratchet, never lower.
+        run: npm test -- --coverage
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run e2e
+        run: npx playwright test
+        env:
+          E2E_FRONT_PORT: 3000
+          E2E_BACK_PORT: 8100
+
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop
+      - name: Cargo check
+        run: cargo check --manifest-path desktop/Cargo.toml
+      - name: Clippy
+        run: cargo clippy --manifest-path desktop/Cargo.toml -- -D warnings
+
+  build-deb:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build .deb package
+        run: bash packaging/build-deb.sh
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: health-manager-v2-deb
+          path: "*.deb"

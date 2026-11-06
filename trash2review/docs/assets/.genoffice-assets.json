@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "name": "image.jpg",
+      "sha256": "01c2e290dd83bbecebe2f2ce344a22f600a45f2af77fb047012fc90d17d0b891"
+    }
+  ],
+  "documents": {
+    "modification-plan.md": [
+      "image.jpg"
+    ]
+  },
+  "pending": {}
+}

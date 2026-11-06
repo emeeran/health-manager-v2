@@ -1,0 +1,25 @@
+[Unit]
+Description=Family Health Manager v2 (FastAPI backend)
+After=network.target
+
+[Service]
+Type=simple
+User=health-manager
+Group=health-manager
+WorkingDirectory=/opt/health-manager/backend
+EnvironmentFile=/etc/health-manager/config.env
+ExecStart=/opt/health-manager/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+# Fail the start if the app never becomes ready (migrations, storage).
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/v1/health/ready >/dev/null && exit 0; sleep 2; done; exit 1'
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/health-manager /var/log/health-manager
+
+[Install]
+WantedBy=multi-user.target

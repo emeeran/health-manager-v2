@@ -1,0 +1,21 @@
+[Unit]
+Description=Family Health Manager v2 (Caddy reverse proxy)
+After=health-manager.service
+Requires=health-manager.service
+
+[Service]
+Type=simple
+User=health-manager
+Group=health-manager
+ExecStart=/opt/health-manager/bin/caddy run --config /etc/health-manager/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=3
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
