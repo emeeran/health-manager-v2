@@ -1,6 +1,6 @@
 [package]
 name = "health-manager-desktop"
-version = "1.3.0"
+version = "1.4.0"
 description = "DAWNSTAR Family Health Manager v2 — desktop shell"
 authors = ["Meeran E. Mandhini"]
 edition = "2024"
