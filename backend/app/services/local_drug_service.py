@@ -18,11 +18,15 @@ import csv
 import json
 import logging
 import re
+import tempfile
 from pathlib import Path
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.core.database import SessionLocal
 from app.models.local_drug import LocalDrug
 
 logger = logging.getLogger(__name__)
@@ -224,3 +228,136 @@ async def search_local_drugs(db: AsyncSession, query: str, limit: int = 20) -> l
         .limit(limit)
     )
     return list(rows)
+
+
+# ── Price comparison (deterministic; catalog prices only) ────────────────────
+
+PRICE_NARRATIVE_PROMPT = """You are annotating a medicine price-comparison table.
+
+GROUND TRUTH (JSON) — the computed table. You may state ONLY facts present in
+it: cheapest option per composition, totals, unmatched medicines, match quality.
+Never cite prices, brands, or availability not in the table. If the table has no
+useful comparison, say so in one sentence.
+
+{table}
+
+Write 2-4 short sentences: the cheapest option per medicine matched, the overall
+total, and any medicines the catalog could not match. Plain sentences, no
+headings, no markdown tables.
+"""
+
+
+async def compare_prices(db: AsyncSession, names: list[str]) -> dict:
+    """Catalog lookup per name → deterministic price table.
+
+    Match tiers: exact normalized-name → partial (contains). One best row per
+    input name (cheapest on ties); unmatched names carry ``match: null``.
+    Prices are Jan Aushadhi reference MRP — never a model claim.
+    """
+    items: list[dict] = []
+    matched = 0
+    total = 0.0
+    for name in names:
+        clean = (name or "").strip()
+        row = None
+        quality = None
+        needle = normalize_drug_name(clean)
+        if needle:
+            exact = await db.scalars(
+                select(LocalDrug)
+                .where(LocalDrug.name_normalized == needle)
+                .order_by(LocalDrug.price.asc().nullslast())
+                .limit(1)
+            )
+            row = exact.first()
+            if row is not None:
+                quality = "exact"
+        if row is None:
+            # Word-prefix match: every needle token must prefix-match a word
+            # of the row's normalized name ("tablet" matches "tablets"), so
+            # "Metformin 500mg Tablet" resolves to the plain metformin rows —
+            # never to an "Acarbose + Metformin" combo that merely contains
+            # the needle as a substring. Rank: most tokens matched, then
+            # closest (shortest) name, then cheapest.
+            tokens = needle.split()
+            candidates = await search_local_drugs(db, tokens[0], limit=100)
+            scored: list[tuple[int, int, float, LocalDrug]] = []
+            for candidate in candidates:
+                words = (candidate.name_normalized or "").split()
+                hits = sum(1 for t in tokens if any(w.startswith(t) for w in words))
+                if hits < len(tokens) or not any(
+                    w.startswith(tokens[0]) for w in words
+                ):
+                    continue
+                price_key = (
+                    candidate.price
+                    if candidate.price is not None
+                    else float("inf")
+                )
+                scored.append((-hits, len(words), price_key, candidate))
+            if scored:
+                # Compare the score tuple only — LocalDrug has no ordering.
+                row = min(scored, key=lambda entry: entry[:-1])[-1]
+                quality = "partial"
+        price = row.price if row is not None else None
+        if price is not None:
+            matched += 1
+            total += price
+        items.append(
+            {
+                "medicine": clean,
+                "match": quality,
+                "catalog_name": row.name if row is not None else None,
+                "manufacturer": row.manufacturer if row is not None else None,
+                "ingredients": (
+                    ", ".join(
+                        i["name"] for i in parsed_ingredients(row)
+                    )
+                    or None
+                )
+                if row is not None
+                else None,
+                "package": row.package if row is not None else None,
+                "price": price,
+                "product_id": row.product_id if row is not None else None,
+            }
+        )
+    return {
+        "items": items,
+        "matched_count": matched,
+        "total_price": round(total, 2) if matched else None,
+    }
+
+
+async def refresh_catalog() -> dict:
+    """Scheduled catalog refresh: download the published CSV → re-seed.
+
+    Self-gating: inert (status=disabled) until JAN_AUSHADHI_DATASET_URL is
+    configured; any fetch/seed failure keeps the existing catalog rows and is
+    logged — availability never regresses.
+    """
+    url = get_settings().JAN_AUSHADHI_DATASET_URL
+    if not url:
+        return {"status": "disabled", "reason": "JAN_AUSHADHI_DATASET_URL not set"}
+    tmp_path: str | None = None
+    try:
+        async with httpx.AsyncClient(
+            timeout=120, follow_redirects=True, headers={"User-Agent": "FamilyHealthManager/2.0"}
+        ) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".csv", delete=False, encoding="utf-8", newline=""
+        ) as handle:
+            handle.write(resp.text)
+            tmp_path = handle.name
+        async with SessionLocal() as db:
+            seeded = await seed_local_drugs(db, Path(tmp_path))
+            await db.commit()
+        return {"status": "ok", "seeded": seeded}
+    except Exception as exc:  # noqa: BLE001 — refresh failure is logged, never fatal
+        logger.warning("Jan Aushadhi catalog refresh failed: %s", exc)
+        return {"status": "error", "reason": str(exc)}
+    finally:
+        if tmp_path:
+            Path(tmp_path).unlink(missing_ok=True)

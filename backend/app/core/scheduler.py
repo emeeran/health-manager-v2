@@ -135,6 +135,15 @@ def start_scheduler() -> AsyncIOScheduler | None:
         minutes=env_int("BACKUP_TICK_MINUTES", 60),
         id="backup_database",
     )
+    # Self-gating: registered only when a dataset URL is configured; the job
+    # itself is also inert-safe if the URL disappears between restarts.
+    if settings.JAN_AUSHADHI_DATASET_URL:
+        _scheduler.add_job(
+            jobs.refresh_drug_catalog,
+            "interval",
+            hours=max(1, settings.JAN_AUSHADHI_REFRESH_DAYS) * 24,
+            id="refresh_drug_catalog",
+        )
     _scheduler.start()
     logger.info("scheduler started (%d jobs)", len(_scheduler.get_jobs()))
     return _scheduler

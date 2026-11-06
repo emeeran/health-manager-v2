@@ -509,3 +509,12 @@ async def rotate_backups() -> int:
     if pruned:
         logger.info("rotate_backups: pruned %s archive(s)", pruned)
     return pruned
+
+
+async def refresh_drug_catalog() -> dict:
+    """Periodic Jan Aushadhi catalog refresh (URL-gated; inert without one)."""
+    from app.services import local_drug_service
+
+    result = await local_drug_service.refresh_catalog()
+    logger.info("refresh_drug_catalog: %s", result["status"])
+    return result

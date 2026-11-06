@@ -10,6 +10,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,4 +69,63 @@ async def analyze_drug_interactions(
         "interactions": interactions,
         "provider_used": provider.name,
         "medications_checked": len(snapshot.medicines),
+    }
+
+
+class PairRequest(BaseModel):
+    medicine_a: str = Field(min_length=1, max_length=120)
+    medicine_b: str = Field(min_length=1, max_length=120)
+
+
+@router.post("/pair")
+async def check_pair_interaction(
+    member_id: uuid.UUID,
+    body: PairRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Interaction check for any two user-named medicines (member-scoped
+    for auth + consent; the medicines need not be in the member's record)."""
+    member = await get_scoped_member(member_id, user, db)
+    medicine_a = body.medicine_a.strip()
+    medicine_b = body.medicine_b.strip()
+    if not medicine_a or not medicine_b:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Both medicine names are required"
+        )
+
+    plan = ai_router.build_plan(local_only=not member.cloud_ai_consent)
+    provider = await ai_router.first_available(plan)
+    if provider is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "No AI provider available")
+
+    prompt = drug_interaction_service.PAIR_INTERACTION_PROMPT.format(
+        medicine_a=medicine_a,
+        medicine_b=medicine_b,
+        member_context=f"Patient: {member.name}.",
+    )
+    try:
+        reply = await provider.complete(prompt)
+    except Exception:  # noqa: BLE001 — a failed check degrades to empty
+        logger.warning("Pair drug-interaction AI call failed", exc_info=True)
+        reply = ""
+
+    interactions = drug_interaction_service.parse_interactions(reply or "")
+    db.add(
+        Insight(
+            member_id=member_id,
+            kind="drug_interactions_pair",
+            content=json.dumps(interactions),
+            sources_json=json.dumps(
+                {"medicine_a": medicine_a, "medicine_b": medicine_b}
+            ),
+            provider_used=provider.name,
+        )
+    )
+    await db.flush()
+
+    return {
+        "interactions": interactions,
+        "provider_used": provider.name,
+        "medicines_checked": 2,
     }

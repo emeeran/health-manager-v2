@@ -33,6 +33,7 @@ VALID_KINDS = (
     "medication_report",
     "medication_schedule",
     "forecast",
+    "visit_summary",
 )
 
 # URL slugs → kind (underscore kind also accepted).
@@ -54,6 +55,8 @@ KIND_SLUGS = {
     "medication_schedule": "medication_schedule",
     "medication-schedule": "medication_schedule",
     "forecast": "forecast",
+    "visit_summary": "visit_summary",
+    "visit-summary": "visit_summary",
 }
 
 
@@ -90,10 +93,33 @@ def _to_view(insight) -> dict:
     }
 
 
-async def _stream_kind(member_id: uuid.UUID, slug: str, user: User, db: AsyncSession):
+async def _stream_kind(
+    member_id: uuid.UUID,
+    slug: str,
+    user: User,
+    db: AsyncSession,
+    record_id: uuid.UUID | None = None,
+):
     from app.routers.ai_insights import resolve_ai_provider
+    from app.models import HealthRecord
 
     kind = _resolve_kind(slug)
+    if kind == "visit_summary":
+        # Per-visit kind: the record must exist, belong to this member, and
+        # not be deleted — a cross-member or missing record is 404, absent
+        # record_id is 422 before any AI call is made.
+        if record_id is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "record_id required for visit_summary",
+            )
+        record = await db.get(HealthRecord, record_id)
+        if (
+            record is None
+            or record.member_id != member_id
+            or record.is_deleted
+        ):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Visit record not found")
     provider, verifier = await resolve_ai_provider(member_id, user, db)
     source = report_service.report_stream(
         db,
@@ -101,6 +127,7 @@ async def _stream_kind(member_id: uuid.UUID, slug: str, user: User, db: AsyncSes
         kind,
         provider,
         verifier,
+        record_id=record_id,
     )
     return sse_response(source)
 
@@ -109,10 +136,11 @@ async def _stream_kind(member_id: uuid.UUID, slug: str, user: User, db: AsyncSes
 async def report_stream_endpoint(
     member_id: uuid.UUID,
     kind: str,
+    record_id: uuid.UUID | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _stream_kind(member_id, kind, user, db)
+    return await _stream_kind(member_id, kind, user, db, record_id=record_id)
 
 
 @router.post("/smart/stream", deprecated=True)

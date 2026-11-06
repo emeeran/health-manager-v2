@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 4
     RAG_MAX_CHARS: int = 4000
 
+    # ── Jan Aushadhi catalog refresh (inert until a dataset URL is set) ──
+    JAN_AUSHADHI_DATASET_URL: str = ""
+    JAN_AUSHADHI_REFRESH_DAYS: int = 30
+
     # ── Frozen desktop build ─────────────────────────────
     # SERVE_FRONTEND=true makes the backend serve the SPA same-origin
     # (desktop sidecar) so httpOnly cookies stay first-party.

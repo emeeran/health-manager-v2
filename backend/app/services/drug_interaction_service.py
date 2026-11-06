@@ -46,6 +46,24 @@ Analyze every pair for interactions. Return ONLY a JSON array (no prose, no mark
 If no pairs interact, return [].
 """
 
+PAIR_INTERACTION_PROMPT = """You are a clinical pharmacist checking two medicines for drug-drug interactions.
+
+Medicines named by the user (not necessarily from the patient's record):
+DRUG A: {medicine_a}
+DRUG B: {medicine_b}
+
+{member_context}
+
+Analyze this pair for interactions. Return ONLY a JSON array (no prose, no markdown fences) — either [] when no documented interaction exists, or one object with exactly these keys:
+- "drugs": the two names, copied from DRUG A / DRUG B above
+- "interaction": one-sentence description of what happens when combined
+- "severity": one of "minor", "moderate", "major", "contraindicated"
+- "mechanism": brief pharmacologic mechanism
+- "recommendation": practical advice — spacing, monitoring, when to consult the doctor
+
+If no documented interaction exists, return [] — do not manufacture risk.
+"""
+
 
 @dataclass(frozen=True)
 class MedSnapshot:
