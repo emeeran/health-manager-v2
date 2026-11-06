@@ -33,11 +33,21 @@ const ConsolidatedReportPage = lazy(
 const MedicationReportPage = lazy(
   () => import("./pages/ai-tools/medication-report"),
 );
+const VisitSummaryPage = lazy(() => import("./pages/ai-tools/visit-summary"));
 const DrugInteractionsPage = lazy(
   () => import("./pages/ai-tools/drug-interactions"),
 );
+const DrugInteractionPairPage = lazy(
+  () => import("./pages/ai-tools/drug-interaction-pair"),
+);
+const DrugInfoPage = lazy(() => import("./pages/ai-tools/drug-info"));
+const PriceComparisonPage = lazy(
+  () => import("./pages/ai-tools/price-comparison"),
+);
 const SmartEntryPage = lazy(() => import("./pages/ai-tools/smart-entry"));
 const SummariesPage = lazy(() => import("./pages/ai-tools/summaries"));
+const InsightPrint = lazy(() => import("./pages/insight-print"));
+const A5Print = lazy(() => import("./pages/a5-print"));
 
 function Page({ children }: { children: React.ReactNode }) {
   return (
@@ -184,10 +194,42 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "/ai-tools/visit-summary",
+        element: (
+          <Page>
+            <VisitSummaryPage />
+          </Page>
+        ),
+      },
+      {
         path: "/ai-tools/drug-interactions",
         element: (
           <Page>
             <DrugInteractionsPage />
+          </Page>
+        ),
+      },
+      {
+        path: "/ai-tools/drug-interaction-pair",
+        element: (
+          <Page>
+            <DrugInteractionPairPage />
+          </Page>
+        ),
+      },
+      {
+        path: "/ai-tools/drug-info",
+        element: (
+          <Page>
+            <DrugInfoPage />
+          </Page>
+        ),
+      },
+      {
+        path: "/ai-tools/price-comparison",
+        element: (
+          <Page>
+            <PriceComparisonPage />
           </Page>
         ),
       },
@@ -223,6 +265,23 @@ export const router = createBrowserRouter([
     element: (
       <Page>
         <MedicineSchedule />
+      </Page>
+    ),
+  },
+  {
+    // Same print discipline for AI reports and the A5 note.
+    path: "/ai-tools/insights/:insightId/print",
+    element: (
+      <Page>
+        <InsightPrint />
+      </Page>
+    ),
+  },
+  {
+    path: "/ai-tools/pre-consultation/print",
+    element: (
+      <Page>
+        <A5Print />
       </Page>
     ),
   },

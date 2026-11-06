@@ -26,8 +26,22 @@ export function getLatestInsight(
   );
 }
 
+/** Single insight by id (print view, share hand-offs). */
+export function getInsight(insightId: string): Promise<Insight> {
+  return apiRequest<Insight>(`/insights/${encodeURIComponent(insightId)}`);
+}
+
+/** Newest pre-consultation note across members (A5 print hand-off). */
+export function getLatestA5NoteInsight(): Promise<Insight | null> {
+  return apiRequest<Insight[]>("/insights?kind=pre_consultation&limit=1").then(
+    (rows) => rows[0] ?? null,
+  );
+}
+
 export interface StreamInsightOptions {
   signal?: AbortSignal;
+  /** Per-visit kinds (visit_summary) stream one specific doctor_visit record. */
+  recordId?: string;
 }
 
 export interface InsightStreamEvent {
@@ -50,15 +64,18 @@ export async function streamInsight(
   memberId: string,
   kind: InsightKind,
   onEvent: (event: InsightStreamEvent) => void,
-  { signal }: StreamInsightOptions = {},
+  { signal, recordId }: StreamInsightOptions = {},
 ): Promise<Insight> {
   const path = `/members/${encodeURIComponent(memberId)}/reports/${reportKindPath(kind)}/stream`;
+  const url = recordId
+    ? `${path}?record_id=${encodeURIComponent(recordId)}`
+    : path;
   // Idle-based, not absolute: narrate + audit on a local model can
   // legitimately outlast any fixed budget, and the backend heartbeats
   // keep healthy streams delivering bytes throughout.
   const guard = streamIdleGuard(STREAM_IDLE_TIMEOUT_MS, signal);
   try {
-    const response = await postStream(path, { signal: guard.signal });
+    const response = await postStream(url, { signal: guard.signal });
     if (!response.ok) {
       throw await toApiError(response);
     }

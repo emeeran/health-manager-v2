@@ -1,7 +1,10 @@
 import {
   CheckCircle2,
   Circle,
+  Copy,
+  Download,
   Loader2,
+  Printer,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
@@ -9,7 +12,10 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { getLatestInsight, streamInsight } from "../../lib/api/insights";
 import type { Insight, InsightKind } from "../../lib/types/insight";
+import { downloadText } from "../../lib/export";
+import { a5NoteFrom } from "../../lib/types/insight";
 import { Markdown } from "../shared/markdown";
+import { A5NoteView } from "./a5-note-view";
 import { AuditPanel } from "../reports/audit-panel";
 import { VerificationBadge } from "../reports/verification-badge";
 
@@ -17,15 +23,23 @@ import { VerificationBadge } from "../reports/verification-badge";
  * One report-kind tool page body: shows the latest saved insight (with a
  * regenerate action) and streams a fresh one with live stage progress and
  * narrative text. Shared by every kind-specific /ai-tools page.
+ *
+ * `recordId` scopes per-visit kinds (visit_summary) to one doctor_visit
+ * record; `structured` renders a structured payload (A5 note) instead of
+ * the markdown narrative when the insight carries one.
  */
 export function InsightTool({
   memberId,
   kind,
   description,
+  recordId,
+  structured = false,
 }: {
   memberId: string;
   kind: InsightKind;
   description: string;
+  recordId?: string;
+  structured?: boolean;
 }) {
   const {
     data: latest,
@@ -45,6 +59,7 @@ export function InsightTool({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   async function handleRun() {
+    if (kind === "visit_summary" && !recordId) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -65,7 +80,7 @@ export function InsightTool({
             setReached((prev) => ({ ...prev, [event.stage]: true }));
           }
         },
-        { signal: controller.signal },
+        { signal: controller.signal, recordId },
       );
       setReport(saved);
       await mutate(saved, { revalidate: false });
@@ -81,6 +96,8 @@ export function InsightTool({
   }
 
   const shown = report ?? latest ?? null;
+  const needsRecord = kind === "visit_summary" && !recordId;
+  const a5 = structured ? a5NoteFrom(shown) : null;
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -89,7 +106,7 @@ export function InsightTool({
         <button
           type="button"
           onClick={() => void handleRun()}
-          disabled={running}
+          disabled={running || needsRecord}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {running ? (
@@ -102,6 +119,12 @@ export function InsightTool({
           {running ? "Generating…" : latest ? "Regenerate" : "Generate"}
         </button>
       </div>
+
+      {needsRecord && (
+        <p className="text-sm text-muted-foreground">
+          Pick a visit above to summarize.
+        </p>
+      )}
 
       {runError && (
         <p
@@ -125,7 +148,11 @@ export function InsightTool({
             Checking for a saved report…
           </p>
         ) : shown ? (
-          <InsightView insight={shown} />
+          a5 ? (
+            <A5NoteView key={shown.id} note={a5} noteId={shown.id} />
+          ) : (
+            <InsightView insight={shown} />
+          )
         ) : (
           <p className="text-sm text-muted-foreground">
             Nothing generated yet — run it once to produce a report from this
@@ -177,6 +204,20 @@ function StageList({ reached }: { reached: Record<string, true> }) {
 }
 
 export function InsightView({ insight }: { insight: Insight }) {
+  const [copied, setCopied] = useState(false);
+  const actionButton =
+    "flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted";
+
+  async function copyMarkdown() {
+    try {
+      await navigator.clipboard.writeText(insight.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — the .md download remains available.
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -188,6 +229,32 @@ export function InsightView({ insight }: { insight: Insight }) {
             {insight.provider_used}
           </span>
         )}
+        <span className="grow" />
+        <button type="button" onClick={() => void copyMarkdown()} className={actionButton}>
+          {copied ? (
+            <CheckCircle2 className="size-4 text-primary" aria-hidden />
+          ) : (
+            <Copy className="size-4" aria-hidden />
+          )}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadText(`${insight.kind}-${insight.id.slice(0, 8)}.md`, insight.content)}
+          className={actionButton}
+        >
+          <Download className="size-4" aria-hidden />
+          .md
+        </button>
+        <a
+          href={`/ai-tools/insights/${insight.id}/print`}
+          target="_blank"
+          rel="noreferrer"
+          className={actionButton}
+        >
+          <Printer className="size-4" aria-hidden />
+          Print
+        </a>
       </div>
       {/* Report narratives are prompted as GFM markdown (see report_service
           PROMPTS); legacy plain-text reports render fine as a single paragraph. */}

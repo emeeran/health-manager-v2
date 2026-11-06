@@ -13,6 +13,15 @@ export function downloadCsv(
   const csv = rows.map((row) => row.map(escape).join(",")).join("\r\n");
   // Leading BOM so Excel opens UTF-8 (medicine names) correctly.
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  triggerDownload(filename, blob);
+}
+
+/** Download a plain-text file (markdown reports, WhatsApp note exports). */
+export function downloadText(filename: string, text: string): void {
+  triggerDownload(filename, new Blob([text], { type: "text/plain;charset=utf-8" }));
+}
+
+function triggerDownload(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

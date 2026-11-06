@@ -5,9 +5,12 @@
 
 import {
   ClipboardCheck,
+  ClipboardList,
+  FileSearch,
   FileStack,
   FileText,
   HeartPulse,
+  IndianRupee,
   Pill,
   Sparkles,
   Stethoscope,
@@ -61,10 +64,34 @@ export const AI_TOOLS: ToolCard[] = [
     path: "/ai-tools/medication-report",
   },
   {
+    title: "Doctor visit summary",
+    description: "Summary of one specific visit — diagnosis, treatment and follow-up",
+    icon: ClipboardList,
+    path: "/ai-tools/visit-summary",
+  },
+  {
     title: "Drug interactions",
     description: "Check current medications for potential interactions",
     icon: Pill,
     path: "/ai-tools/drug-interactions",
+  },
+  {
+    title: "Interaction — any two medicines",
+    description: "Interaction check for any two medicines you name",
+    icon: Pill,
+    path: "/ai-tools/drug-interaction-pair",
+  },
+  {
+    title: "Medicine information",
+    description: "Complete authenticated information on a medicine",
+    icon: FileSearch,
+    path: "/ai-tools/drug-info",
+  },
+  {
+    title: "Price comparison",
+    description: "Jan Aushadhi price table for your medicines",
+    icon: IndianRupee,
+    path: "/ai-tools/price-comparison",
   },
   {
     title: "Smart entry",
@@ -96,9 +123,18 @@ export const TOOL_GROUPS: ToolGroup[] = [
       "/ai-tools/pre-consultation",
       "/ai-tools/consolidated-report",
       "/ai-tools/medication-report",
+      "/ai-tools/visit-summary",
     ],
   },
-  { label: "Safety", paths: ["/ai-tools/drug-interactions"] },
+  {
+    label: "Medicine reports",
+    paths: [
+      "/ai-tools/drug-interactions",
+      "/ai-tools/drug-interaction-pair",
+      "/ai-tools/drug-info",
+      "/ai-tools/price-comparison",
+    ],
+  },
   {
     label: "Tools",
     paths: ["/ai-tools/smart-entry", "/ai-tools/summaries"],

@@ -8,6 +8,7 @@ export const INSIGHT_KINDS = [
   "consultant_note",
   "consolidated_report",
   "medication_report",
+  "visit_summary",
 ] as const;
 
 export type InsightKind = (typeof INSIGHT_KINDS)[number];
@@ -54,4 +55,55 @@ export const INSIGHT_KIND_META: Record<
     label: "Medication report",
     description: "Full medication history with dose changes over time",
   },
+  visit_summary: {
+    label: "Doctor visit summary",
+    description: "Summary of one specific visit — diagnosis, treatment and follow-up",
+  },
 };
+
+/** Structured A5 pre-consultation note payload (report_service.PreConsultationA5). */
+export interface A5Note {
+  date: string;
+  member_name: string;
+  chronic_conditions: string[];
+  chief_complaints: string[];
+  to_discuss: string[];
+  current_medications: string[];
+}
+
+/** Pull the A5 payload out of a pre_consultation insight, when present. */
+export function a5NoteFrom(insight: Insight | null): A5Note | null {
+  const payload = insight?.sources?.a5_note;
+  if (!payload || typeof payload !== "object") return null;
+  const note = payload as Partial<A5Note>;
+  if (typeof note.date !== "string" || typeof note.member_name !== "string") {
+    return null;
+  }
+  const list = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  return {
+    date: note.date,
+    member_name: note.member_name,
+    chronic_conditions: list(note.chronic_conditions),
+    chief_complaints: list(note.chief_complaints),
+    to_discuss: list(note.to_discuss),
+    current_medications: list(note.current_medications),
+  };
+}
+
+/** Plain-text rendering of the note — WhatsApp export / print sheet source. */
+export function a5NoteToText(note: A5Note): string {
+  const lines = [`Date: ${note.date}`, `Member Name: ${note.member_name}`];
+  if (note.chronic_conditions.length) {
+    lines.push(`Chronic: ${note.chronic_conditions.join(", ")}`);
+  }
+  if (note.chief_complaints.length) {
+    lines.push(`C/c: ${note.chief_complaints.join("; ")}`);
+  }
+  lines.push("", "To discuss with doctor");
+  note.to_discuss.forEach((item, i) => lines.push(`${i + 1}. ${item}`));
+  if (note.current_medications.length) {
+    lines.push("", `Current medications: ${note.current_medications.join(", ")}`);
+  }
+  return lines.join("\n");
+}

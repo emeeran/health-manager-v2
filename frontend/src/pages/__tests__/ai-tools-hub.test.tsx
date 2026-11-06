@@ -64,7 +64,9 @@ describe("AiToolsHub", () => {
     ).toBeInTheDocument();
     // Group headings render in order.
     expect(screen.getByRole("region", { name: "Reports" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Safety" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Medicine reports" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Tools" })).toBeInTheDocument();
     // Cards link to the tool pages; no member pinned → plain paths.
     expect(
@@ -76,6 +78,15 @@ describe("AiToolsHub", () => {
     expect(
       screen.getByRole("link", { name: /Drug interactions/i }),
     ).toHaveAttribute("href", "/ai-tools/drug-interactions");
+    expect(
+      screen.getByRole("link", { name: /any two medicines/i }),
+    ).toHaveAttribute("href", "/ai-tools/drug-interaction-pair");
+    expect(
+      screen.getByRole("link", { name: /Price comparison/i }),
+    ).toHaveAttribute("href", "/ai-tools/price-comparison");
+    expect(
+      screen.getByRole("link", { name: /Doctor visit summary/i }),
+    ).toHaveAttribute("href", "/ai-tools/visit-summary");
   });
 
   it("shows the empty state when the household has no members", async () => {

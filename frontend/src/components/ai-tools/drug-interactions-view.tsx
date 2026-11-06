@@ -116,7 +116,7 @@ function InteractionResults({ result }: { result: DrugInteractionResponse }) {
   );
 }
 
-function InteractionCard({ interaction }: { interaction: DrugInteraction }) {
+export function InteractionCard({ interaction }: { interaction: DrugInteraction }) {
   // Older persisted rows predate the drugs/description contract — render
   // them defensively instead of crashing on undefined arrays.
   const drugs = interaction.drugs ?? [];
