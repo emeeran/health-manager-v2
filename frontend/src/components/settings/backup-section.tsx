@@ -11,10 +11,14 @@ import useSWR from "swr";
 import {
   backupDownloadUrl,
   createBackup,
+  getBackupSchedule,
   requestRestore,
+  updateBackupSchedule,
+  type BackupSchedule,
 } from "../../lib/api/backup";
 import { formatFileSize } from "../../lib/types/attachment";
 import type { BackupInfo } from "../../lib/types/backup";
+import { INPUT_CLASS } from "../../lib/utils";
 
 export function BackupSection() {
   const {
@@ -22,10 +26,32 @@ export function BackupSection() {
     isLoading,
     mutate,
   } = useSWR<BackupInfo[]>("/backup/list");
+  const { data: schedule, mutate: mutateSchedule } = useSWR<BackupSchedule>(
+    "backup-schedule",
+    () => getBackupSchedule().then((res) => res.schedule),
+  );
   const [creating, setCreating] = useState(false);
   const [restoringName, setRestoringName] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleScheduleChange(value: BackupSchedule) {
+    // Optimistic: the selector should feel instant; revert on failure.
+    const previous = schedule;
+    setError(null);
+    mutateSchedule(value, { revalidate: false });
+    try {
+      await updateBackupSchedule(value);
+      if (value === "off") {
+        setNotice("Automatic backups are off — remember to back up manually.");
+      } else {
+        setNotice(`Automatic backups run ${value === "daily" ? "every day" : "every week"}.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not change the schedule.");
+      if (previous) mutateSchedule(previous, { revalidate: false });
+    }
+  }
 
   async function handleCreate() {
     setCreating(true);
@@ -91,6 +117,25 @@ export function BackupSection() {
         Download them and keep a copy off this machine — a backup you can't
         reach is not a backup.
       </p>
+
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-medium">Automatic backup</span>
+        <select
+          value={schedule ?? "daily"}
+          onChange={(e) =>
+            void handleScheduleChange(e.target.value as BackupSchedule)
+          }
+          disabled={schedule === undefined}
+          className={`${INPUT_CLASS} w-auto`}
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="off">Off</option>
+        </select>
+        <span className="text-xs text-muted-foreground">
+          Runs on the server; archives are pruned after 30 days.
+        </span>
+      </label>
 
       {notice && (
         <p

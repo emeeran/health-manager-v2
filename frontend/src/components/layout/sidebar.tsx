@@ -33,6 +33,14 @@ const items: NavItem[] = [
 ];
 
 const COLLAPSED_KEY = "sidebar-collapsed";
+const WIDTH_KEY = "sidebar-width";
+const WIDTH_MIN = 200;
+const WIDTH_MAX = 400;
+const WIDTH_DEFAULT = 240;
+
+function clampWidth(px: number): number {
+  return Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, Math.round(px)));
+}
 
 /** Below the md breakpoint there isn't room for 240px of labels, but hiding
  * the sidebar entirely would leave narrow (tiled / HiDPI-scaled) desktop
@@ -50,9 +58,24 @@ function initialCollapsed(): boolean {
   return window.innerWidth < NARROW_VIEWPORT_PX;
 }
 
+function initialWidth(): number {
+  try {
+    const stored = localStorage.getItem(WIDTH_KEY);
+    if (stored !== null) {
+      const parsed = Number.parseInt(stored, 10);
+      if (Number.isFinite(parsed)) return clampWidth(parsed);
+    }
+  } catch {
+    // Storage unavailable (private mode) — fall through to the default.
+  }
+  return WIDTH_DEFAULT;
+}
+
 export function Sidebar() {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const [width, setWidth] = useState(initialWidth);
+  const [resizing, setResizing] = useState(false);
 
   function toggle() {
     setCollapsed((value) => {
@@ -65,12 +88,48 @@ export function Sidebar() {
     });
   }
 
+  // Drag the right edge to resize; pointer capture keeps the drag alive
+  // when the cursor leaves the 6px hit strip.
+  function startResize(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setResizing(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveResize(event: React.PointerEvent<HTMLDivElement>) {
+    if (!resizing) return;
+    setWidth(clampWidth(event.clientX));
+  }
+
+  function endResize() {
+    if (!resizing) return;
+    setResizing(false);
+    setWidth((value) => {
+      try {
+        localStorage.setItem(WIDTH_KEY, String(clampWidth(value)));
+      } catch {
+        // Storage unavailable (private mode) — width survives this session.
+      }
+      return value;
+    });
+  }
+
+  function resetWidth() {
+    setWidth(WIDTH_DEFAULT);
+    try {
+      localStorage.setItem(WIDTH_KEY, String(WIDTH_DEFAULT));
+    } catch {
+      // Storage unavailable (private mode) — width survives this session.
+    }
+  }
+
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200",
-        collapsed ? "w-16" : "w-60",
+        "relative flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200",
+        collapsed ? "w-16" : resizing && "transition-none",
       )}
+      style={collapsed ? undefined : { width }}
     >
       <div
         className={cn(
@@ -139,6 +198,20 @@ export function Sidebar() {
         <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">
           Self-hosted family health records
         </p>
+      )}
+
+      {!collapsed && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          title="Drag to resize — double-click to reset"
+          onPointerDown={startResize}
+          onPointerMove={moveResize}
+          onPointerUp={endResize}
+          onDoubleClick={resetWidth}
+          className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none transition-colors hover:bg-primary/30"
+        />
       )}
     </aside>
   );

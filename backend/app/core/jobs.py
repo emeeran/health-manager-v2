@@ -430,7 +430,9 @@ async def get_backup_schedule() -> str:
     """The primary household's backup schedule (off | daily | weekly).
 
     Single-household family-server assumption: the oldest household's
-    settings_json drives the server-wide schedule.
+    settings_json drives the server-wide schedule. Unset defaults to daily —
+    automatic local backups are the safe default; the Settings UI can turn
+    them off.
     """
     import json
 
@@ -443,12 +445,12 @@ async def get_backup_schedule() -> str:
             ).first()
             if household is not None and household.settings_json:
                 parsed = json.loads(household.settings_json)
-                schedule = parsed.get("backup_schedule", "off")
+                schedule = parsed.get("backup_schedule", "daily")
                 if isinstance(schedule, str) and schedule in ("off", "daily", "weekly"):
                     return schedule
     except Exception:  # noqa: BLE001
-        logger.exception("Could not read backup schedule; defaulting to off")
-    return "off"
+        logger.exception("Could not read backup schedule; defaulting to daily")
+    return "daily"
 
 
 async def backup_database() -> bool:

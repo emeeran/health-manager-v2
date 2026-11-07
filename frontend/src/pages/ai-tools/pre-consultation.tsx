@@ -14,6 +14,7 @@ export default function PreConsultationPage() {
           memberId={memberId}
           kind="pre_consultation"
           structured
+          confirmBeforeRun
           description="One-page note to carry to the doctor — print on A5 or share as text"
         />
       )}

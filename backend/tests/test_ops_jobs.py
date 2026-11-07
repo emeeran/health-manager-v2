@@ -222,10 +222,37 @@ async def test_rotate_backups_prunes_old_only():
         fresh.unlink(missing_ok=True)
 
 
-async def test_backup_database_gated_off_by_default(auth_client):
+async def test_backup_database_runs_by_default(auth_client):
     from app.core import jobs
 
-    # Households default to backup_schedule=off → no-op, no archive.
+    # Unset schedule defaults to daily → the tick creates an archive.
+    # Fresh run-state: a real (dev-server) backup within the last 24h must
+    # not make the gated tick consider itself already done.
+    backup_service.STATE_FILE.unlink(missing_ok=True)
+    result = await jobs.backup_database()
+    assert result is True
+    try:
+        assert list(_backup_dir().glob("backup_*.tar.gz.enc"))
+    finally:
+        for stale in _backup_dir().glob("backup_*.tar.gz.enc"):
+            stale.unlink(missing_ok=True)
+        backup_service.STATE_FILE.unlink(missing_ok=True)
+
+
+async def test_backup_database_respects_explicit_off(auth_client):
+    from sqlalchemy import select
+
+    from app.core import jobs
+    from app.models import Household
+
+    async with SessionLocal() as db:
+        household = (
+            await db.scalars(select(Household).order_by(Household.created_at).limit(1))
+        ).first()
+        assert household is not None
+        household.settings_json = '{"backup_schedule": "off"}'
+        await db.commit()
+
     before = {p.name for p in _backup_dir().glob("backup_*.tar.gz.enc")}
     assert await jobs.backup_database() is False
     after = {p.name for p in _backup_dir().glob("backup_*.tar.gz.enc")}

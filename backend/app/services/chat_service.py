@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     ConditionEpisode,
+    Conversation,
     FamilyMember,
     LabResult,
     Medication,
@@ -30,6 +31,18 @@ CHAT_SYSTEM = (
 )
 
 RECENT_DAYS = 90
+
+TITLE_MAX_CHARS = 60
+
+
+def derive_title(user_content: str, limit: int = TITLE_MAX_CHARS) -> str:
+    """Sidebar label from the opening question's first line — collapsed and
+    clamped. No extra LLM round-trip: the question text is the topic."""
+    first_line = user_content.strip().splitlines()[0] if user_content.strip() else ""
+    collapsed = " ".join(first_line.split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[: limit - 1].rstrip() + "…"
 
 
 async def build_member_context(db: AsyncSession, member_id: uuid.UUID) -> str:
@@ -150,6 +163,13 @@ async def chat_stream(
     user_msg = Message(conversation_id=conversation_id, role="user", content=user_content)
     db.add(user_msg)
     await db.flush()
+
+    # Auto-title: a conversation created without an explicit title takes its
+    # name from the topic (its first question), so the sidebar list stays
+    # meaningful. Committed with the assistant message below.
+    conversation = await db.get(Conversation, conversation_id)
+    if conversation is not None and not conversation.title:
+        conversation.title = derive_title(user_content)
 
     prompt = f"Member context:\n{context}\n\n"
     if catalog_block:

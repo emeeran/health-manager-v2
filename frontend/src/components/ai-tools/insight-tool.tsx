@@ -34,12 +34,15 @@ export function InsightTool({
   description,
   recordId,
   structured = false,
+  confirmBeforeRun = false,
 }: {
   memberId: string;
   kind: InsightKind;
   description: string;
   recordId?: string;
   structured?: boolean;
+  /** Ask for an explicit Continue/Cancel before burning a generation run. */
+  confirmBeforeRun?: boolean;
 }) {
   const {
     data: latest,
@@ -49,6 +52,7 @@ export function InsightTool({
     getLatestInsight(memberId, kind),
   );
   const [running, setRunning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [report, setReport] = useState<Insight | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [reached, setReached] = useState<Record<string, true>>({});
@@ -57,6 +61,27 @@ export function InsightTool({
 
   // Stop an in-flight stream when the page unmounts.
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // C/c style confirmation: C (or Enter) continues, Esc (or n) cancels.
+  // Ignore keystrokes typed into form fields — they belong to the user.
+  useEffect(() => {
+    if (!confirming) return;
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (event.key === "c" || event.key === "C" || event.key === "Enter") {
+        event.preventDefault();
+        setConfirming(false);
+        void handleRun();
+      } else if (event.key === "Escape" || event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        setConfirming(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirming]);
 
   async function handleRun() {
     if (kind === "visit_summary" && !recordId) return;
@@ -99,13 +124,22 @@ export function InsightTool({
   const needsRecord = kind === "visit_summary" && !recordId;
   const a5 = structured ? a5NoteFrom(shown) : null;
 
+  function requestRun() {
+    if (running || needsRecord) return;
+    if (confirmBeforeRun) {
+      setConfirming(true);
+    } else {
+      void handleRun();
+    }
+  }
+
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{description}</p>
         <button
           type="button"
-          onClick={() => void handleRun()}
+          onClick={requestRun}
           disabled={running || needsRecord}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
         >
@@ -124,6 +158,37 @@ export function InsightTool({
         <p className="text-sm text-muted-foreground">
           Pick a visit above to summarize.
         </p>
+      )}
+
+      {confirming && !running && (
+        <div
+          role="alertdialog"
+          aria-label="Confirm generation"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+        >
+          <span className="text-muted-foreground">
+            Generate now from this member's current records?
+          </span>
+          <span className="grow" />
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setConfirming(false);
+              void handleRun();
+            }}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Continue (C)
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+          >
+            Cancel (Esc)
+          </button>
+        </div>
       )}
 
       {runError && (

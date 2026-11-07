@@ -1,5 +1,21 @@
 import { apiRequest } from "../api-client";
 
+export type BackupSchedule = "off" | "daily" | "weekly";
+
+/** Automatic local backup cadence (default daily — see Settings → Backup). */
+export function getBackupSchedule(): Promise<{ schedule: BackupSchedule }> {
+  return apiRequest<{ schedule: BackupSchedule }>("/backup/schedule");
+}
+
+export function updateBackupSchedule(
+  schedule: BackupSchedule,
+): Promise<{ schedule: BackupSchedule }> {
+  return apiRequest<{ schedule: BackupSchedule }>("/backup/schedule", {
+    method: "PUT",
+    body: { schedule },
+  });
+}
+
 export function createBackup(): Promise<{ filename: string }> {
   return apiRequest<{ filename: string }>("/backup/create", {
     method: "POST",

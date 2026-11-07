@@ -86,7 +86,11 @@ async def put_ai_config(
             except ValueError as exc:
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     household, _ = result
-    household.settings_json = body.model_dump_json()
+    # Merge instead of overwrite: settings_json also carries non-AI keys
+    # (e.g. backup_schedule — see routers/backup.py, core/jobs.py).
+    settings = _parse_config(household)
+    settings.update(body.model_dump())
+    household.settings_json = json.dumps(settings)
     record_audit(
         db,
         action="household.ai_config",
