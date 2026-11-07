@@ -87,3 +87,12 @@ export interface WebFactcheckStatus {
   max_claims: number;
   max_results: number;
 }
+
+/** Medicine catalog crawler toggle state (GET/PUT /system/medicine-crawler). */
+export interface MedicineCrawlerStatus {
+  enabled: boolean;
+  source: "db" | "default";
+  batch_pages: number;
+  data_dir: string;
+  script_present: boolean;
+}

@@ -19,6 +19,7 @@ from app.models.provider import Provider
 from app.models.provider_assignment import ProviderAssignment
 from app.models.push_subscription import PushSubscription
 from app.models.lab_result import LabFlag, LabResult
+from app.models.crawler_drug import CrawlerDrug
 from app.models.local_drug import LocalDrug
 from app.models.medication import Medication, MedicationStatus, normalize_medicine_key
 from app.models.preventive import PreventiveDismissal
@@ -62,6 +63,7 @@ __all__ = [
     "PushSubscription",
     "LabFlag",
     "LabResult",
+    "CrawlerDrug",
     "LocalDrug",
     "Medication",
     "MedicationStatus",

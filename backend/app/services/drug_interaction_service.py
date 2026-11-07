@@ -36,6 +36,8 @@ INTERACTION_PROMPT = """You are a clinical pharmacist reviewing a patient's acti
 Active medications (name | dosage):
 {med_list}
 
+{drug_context}
+
 Analyze every pair for interactions. Return ONLY a JSON array (no prose, no markdown fences) — one object per interacting pair, each with exactly these keys:
 - "drugs": the names of the interacting medications, copied from the list above
 - "interaction": one-sentence description of what happens when combined
@@ -54,7 +56,9 @@ DRUG B: {medicine_b}
 
 {member_context}
 
-Analyze this pair for interactions. Return ONLY a JSON array (no prose, no markdown fences) — either [] when no documented interaction exists, or one object with exactly these keys:
+{drug_context}
+
+Analyze this pair for interactions. Resolve each medicine to its generic ingredients (using the catalog context when available) before judging the interaction. Return ONLY a JSON array (no prose, no markdown fences) — either [] when no documented interaction exists, or one object with exactly these keys:
 - "drugs": the two names, copied from DRUG A / DRUG B above
 - "interaction": one-sentence description of what happens when combined
 - "severity": one of "minor", "moderate", "major", "contraindicated"

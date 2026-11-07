@@ -58,6 +58,14 @@ export const hi: Dictionary = {
       scanDuration: "स्कैन पूर्ण हुआ",
       attachmentsChecked: "अटैचमेंट जाँचे गए",
       attachmentsMissing: "गुम फ़ाइलें",
+      crawlerHeading: "दवा कैटलॉग क्रॉलर",
+      crawlerDescription:
+        "दवा मूल्य तालिका को अद्यतन रखने के लिए सार्वजनिक फ़ार्मेसी कैटलॉग (1mg, Apollo Pharmacy) को छोटे बैचों में पीछे से क्रॉल करता है।",
+      crawlerOn: "चालू",
+      crawlerOff: "बंद",
+      crawlerBatchHint: "प्रति बैच पेज",
+      crawlerScriptMissing: "इस इंस्टॉल में क्रॉलर स्क्रिप्ट नहीं मिली",
+      crawlerError: "क्रॉलर टॉगल अपडेट नहीं हो सका।",
     },
   },
 };

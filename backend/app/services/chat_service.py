@@ -128,11 +128,32 @@ async def chat_stream(
 
     rag_block, citations = rag.grounding_block(user_content)
 
+    # Pharmacy-catalog grounding: resolve brand names (the member's active
+    # meds + anything drug-like in the question) to generic/price/uses.
+    from app.services import crawler_drug_service
+
+    catalog_names: list[str] = [user_content]
+    if member_id is not None:
+        med_names = await db.scalars(
+            select(Medication.medicine).where(
+                Medication.member_id == member_id, Medication.status == "active"
+            )
+        )
+        catalog_names.extend(med_names)
+    catalog_block = await crawler_drug_service.drug_context_block(db, catalog_names, per_drug=1)
+    catalog_citations = [
+        {"source": "pharmacy catalog", "snippet": line[:200]}
+        for line in catalog_block.splitlines()
+        if line.startswith("- ")
+    ][:3]
+
     user_msg = Message(conversation_id=conversation_id, role="user", content=user_content)
     db.add(user_msg)
     await db.flush()
 
     prompt = f"Member context:\n{context}\n\n"
+    if catalog_block:
+        prompt += f"{catalog_block}\n\n"
     if rag_block:
         prompt += f"{rag_block}\n\n"
     prompt += f"Question: {user_content}"
@@ -198,5 +219,5 @@ async def chat_stream(
             "created_at": assistant_msg.created_at.isoformat(),
             "verification_id": str(verification_id) if verification_id else None,
         },
-        "sources": citations,
+        "sources": citations + catalog_citations,
     }

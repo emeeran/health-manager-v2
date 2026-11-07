@@ -7,12 +7,14 @@ that would normally be config fields are read from the environment with
 sane defaults here (config.py is frozen for this phase).
 """
 
+import asyncio
 import logging
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import delete, select
 
-from app.core.config import env_int
+from app.core.config import env_int, get_settings
 from app.core.database import SessionLocal
 from app.models import (
     Medication,
@@ -518,3 +520,68 @@ async def refresh_drug_catalog() -> dict:
     result = await local_drug_service.refresh_catalog()
     logger.info("refresh_drug_catalog: %s", result["status"])
     return result
+
+
+async def crawl_medicine_catalog() -> dict:
+    """One bounded batch of the 1mg/Apollo medicine crawler (toggle-gated).
+
+    Self-gating like backup_database: registered unconditionally, but no-ops
+    unless the Settings toggle is on (stored in app_secrets, env fallback).
+    Also re-enqueues stale pages first so steady-state ticks refresh prices
+    rather than stopping once the initial crawl drains.
+    """
+    from app.core.database import SessionLocal
+    from app.services import medicine_crawler
+
+    async with SessionLocal() as db:
+        if not await medicine_crawler.is_enabled(db):
+            return {"status": "disabled"}
+        settings = get_settings()
+        batch = settings.MEDICINE_CRAWLER_BATCH_PAGES
+        data_dir = settings.MEDICINE_CRAWLER_DATA_DIR
+        timeout = settings.MEDICINE_CRAWLER_TIMEOUT_SECONDS
+
+    requeue = await asyncio.to_thread(_requeue_stale_pages, data_dir)
+    result = await medicine_crawler.run_batch(batch, data_dir, timeout)
+    synced = 0
+    if result.get("status") == "ok":
+        from app.services import crawler_drug_service
+
+        async with SessionLocal() as db:
+            sync = await crawler_drug_service.sync_from_crawler_db(db)
+        synced = sync.get("synced", 0)
+    logger.info(
+        "crawl_medicine_catalog: %s (requeued=%s, synced=%s)",
+        result.get("status"),
+        requeue.get("requeued"),
+        synced,
+    )
+    return {**result, "requeued": requeue.get("requeued", 0), "synced": synced}
+
+
+def _requeue_stale_pages(data_dir: str, days: int = 7) -> dict:
+    """Flip done->pending for pages last crawled before the staleness window."""
+    import sqlite3
+    import time
+
+    db_path = Path(data_dir) / "crawl.db"
+    if not db_path.is_file():
+        return {"requeued": 0}
+    conn = sqlite3.connect(db_path, timeout=60)
+    try:
+        cutoff = time.time() - days * 86400
+        stale = [
+            row[0]
+            for row in conn.execute(
+                "SELECT url FROM urls WHERE status='done' "
+                "AND fetched_at IS NOT NULL AND fetched_at < ? LIMIT 1000",
+                (cutoff,),
+            )
+        ]
+        conn.executemany(
+            "UPDATE urls SET status='pending' WHERE url=?", ((u,) for u in stale)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"requeued": len(stale)}

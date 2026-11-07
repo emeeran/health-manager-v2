@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.schemas.household import ProviderKeySet
-from app.services import provider_keys
+from app.schemas.household import MedicineCrawlerToggle, ProviderKeySet
+from app.services import medicine_crawler, provider_keys
 from app.services.audit import record_audit
 
 from app.core.deps import require_household_admin
@@ -146,6 +146,62 @@ async def web_factcheck_status(
         "max_claims": settings.WEB_FACTCHECK_MAX_CLAIMS,
         "max_results": settings.WEB_FACTCHECK_MAX_RESULTS,
     }
+
+
+@router.get("/medicine-crawler")
+async def medicine_crawler_status(
+    _: tuple = Depends(require_household_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Crawler toggle state + batch knobs for the Settings board."""
+    return await medicine_crawler.get_status(db)
+
+
+@router.put("/medicine-crawler")
+async def set_medicine_crawler(
+    body: MedicineCrawlerToggle,
+    request: Request,
+    result: tuple = Depends(require_household_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Enable/disable periodic background crawling (stored, survives restarts)."""
+    household, _ = result
+    await medicine_crawler.set_enabled(db, body.enabled)
+    record_audit(
+        db,
+        action="system.medicine_crawler",
+        household_id=household.id,
+        detail=f"enabled={body.enabled}",
+        ip=request.client.host if request.client else None,
+    )
+    await db.commit()
+    return await medicine_crawler.get_status(db)
+
+
+@router.post("/medicine-crawler/sync")
+async def sync_medicine_crawler(
+    request: Request,
+    result: tuple = Depends(require_household_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Pull crawled rows from the crawler checkpoint DB into crawler_drugs.
+
+    Safe to run mid-crawl — it syncs whatever is already crawled. The
+    scheduled crawler job also syncs after each batch; this endpoint is for
+    an explicit kick (e.g. first import of an existing full crawl)."""
+    household, _ = result
+    from app.services import crawler_drug_service
+
+    outcome = await crawler_drug_service.sync_from_crawler_db(db)
+    record_audit(
+        db,
+        action="system.medicine_crawler_sync",
+        household_id=household.id,
+        detail=f"status={outcome['status']} synced={outcome['synced']}",
+        ip=request.client.host if request.client else None,
+    )
+    await db.commit()
+    return outcome
 
 
 @router.put("/provider-keys/{name}")

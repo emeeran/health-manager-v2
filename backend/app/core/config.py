@@ -101,6 +101,13 @@ class Settings(BaseSettings):
     JAN_AUSHADHI_DATASET_URL: str = ""
     JAN_AUSHADHI_REFRESH_DAYS: int = 30
 
+    # ── Medicine catalog crawler (1mg/Apollo; toggled at runtime in Settings,
+    #    env value is only the default) ──
+    MEDICINE_CRAWLER_ENABLED: bool = False
+    MEDICINE_CRAWLER_DATA_DIR: str = "./data/medicine-crawler"
+    MEDICINE_CRAWLER_BATCH_PAGES: int = 400
+    MEDICINE_CRAWLER_TIMEOUT_SECONDS: int = 900
+
     # ── Frozen desktop build ─────────────────────────────
     # SERVE_FRONTEND=true makes the backend serve the SPA same-origin
     # (desktop sidecar) so httpOnly cookies stay first-party.

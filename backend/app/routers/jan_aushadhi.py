@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_scoped_member
 from app.models import Insight, User
-from app.services import local_drug_service
+from app.services import crawler_drug_service, local_drug_service
 from app.services.ai import router as ai_router
 
 router = APIRouter(prefix="/drugs", tags=["drugs"])
@@ -27,10 +27,16 @@ async def search_drugs(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
+    """Jan Aushadhi generic rows first, then crawled pharmacy listings.
+
+    Crawler rows carry ``catalog`` ("1mg"/"apollo") and ``url`` instead of
+    ``product_id``; they are already sorted by selling price ascending."""
     rows = await local_drug_service.search_local_drugs(db, q, limit)
+    crawler_rows = await crawler_drug_service.search_crawler_drugs(db, q, limit)
     return [
         {
             "id": str(row.id),
+            "catalog": "jan_aushadhi",
             "product_id": row.product_id,
             "name": row.name,
             "manufacturer": row.manufacturer,
@@ -40,6 +46,22 @@ async def search_drugs(
             "package": row.package,
         }
         for row in rows
+    ] + [
+        {
+            "id": str(row.id),
+            "catalog": row.source,
+            "product_id": None,
+            "name": row.brand_name,
+            "manufacturer": row.manufacturer,
+            "ingredients": [],
+            "price": row.price_selling,
+            "price_mrp": row.price_mrp,
+            "product_form": row.dosage_form,
+            "package": row.pack_size,
+            "url": row.url,
+            "prescription_required": row.prescription_required,
+        }
+        for row in crawler_rows
     ]
 
 
@@ -69,6 +91,15 @@ async def price_compare(
         member = await get_scoped_member(body.member_id, user, db)
 
     result = await local_drug_service.compare_prices(db, names)
+    # Pharmacy offers from the crawled 1mg/Apollo catalog — cheapest first,
+    # match discipline identical to the Jan Aushadhi tiers.
+    offers_matched = 0
+    for item in result["items"]:
+        offers = await crawler_drug_service.offers_for(db, item["medicine"])
+        item["pharmacy_offers"] = offers
+        if offers:
+            offers_matched += 1
+    result["offers_matched_count"] = offers_matched
     narrative = None
     provider_used = None
     if body.narrate:

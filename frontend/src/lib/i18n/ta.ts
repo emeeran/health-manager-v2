@@ -58,6 +58,14 @@ export const ta: Dictionary = {
       scanDuration: "ஸ்கேன் முடிந்தது",
       attachmentsChecked: "இணைப்புகள் சரிபார்க்கப்பட்டன",
       attachmentsMissing: "காணாமல் போன கோப்புகள்",
+      crawlerHeading: "மருந்து பட்டியல் க்ராலர்",
+      crawlerDescription:
+        "மருந்து விலை அட்டவணையை புதுப்பித்து வைக்க பொது மருந்தக பட்டியல்களை (1mg, Apollo Pharmacy) சிறு தொகுதிகளாக பின்புலத்தில் சுழற்சியாக க்ரால் செய்கிறது.",
+      crawlerOn: "இயக்கம்",
+      crawlerOff: "நிறுத்தம்",
+      crawlerBatchHint: "ஒரு தொகுதிக்கு பக்கங்கள்",
+      crawlerScriptMissing: "இந்த நிறுவலில் க்ராலர் ஸ்கிரிப்ட் இல்லை",
+      crawlerError: "க்ராலர் மாற்றத்தை புதுப்பிக்க முடியவில்லை.",
     },
   },
 };

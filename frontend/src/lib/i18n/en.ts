@@ -66,6 +66,14 @@ export const en = {
       scanDuration: "Scan completed in",
       attachmentsChecked: "attachments checked",
       attachmentsMissing: "missing files",
+      crawlerHeading: "Medicine catalog crawler",
+      crawlerDescription:
+        "Periodically crawls public pharmacy catalogs (1mg, Apollo Pharmacy) in small background batches to keep the medicine price table current.",
+      crawlerOn: "On",
+      crawlerOff: "Off",
+      crawlerBatchHint: "pages per batch",
+      crawlerScriptMissing: "Crawler script missing on this install",
+      crawlerError: "Could not update the crawler toggle.",
     },
   },
 };

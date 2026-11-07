@@ -9,6 +9,7 @@ import type {
   HouseholdUser,
   InvitationCreated,
   InvitationInfo,
+  MedicineCrawlerStatus,
   ProviderKeyStatus,
   WebFactcheckStatus,
 } from "../types/household";
@@ -124,4 +125,18 @@ export function deleteProviderKey(name: string): Promise<ProviderKeyStatus> {
 /** Instance-level status for the audit agent's SearXNG fact-checking. */
 export function getWebFactcheckStatus(): Promise<WebFactcheckStatus> {
   return apiRequest<WebFactcheckStatus>("/system/web-factcheck");
+}
+
+/** Medicine catalog crawler toggle (GET/PUT /system/medicine-crawler). */
+export function getMedicineCrawlerStatus(): Promise<MedicineCrawlerStatus> {
+  return apiRequest<MedicineCrawlerStatus>("/system/medicine-crawler");
+}
+
+export function setMedicineCrawlerEnabled(
+  enabled: boolean,
+): Promise<MedicineCrawlerStatus> {
+  return apiRequest<MedicineCrawlerStatus>("/system/medicine-crawler", {
+    method: "PUT",
+    body: { enabled },
+  });
 }

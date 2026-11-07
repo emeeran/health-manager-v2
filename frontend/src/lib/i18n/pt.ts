@@ -62,6 +62,14 @@ export const pt: Dictionary = {
       scanDuration: "Verificação concluída em",
       attachmentsChecked: "anexos verificados",
       attachmentsMissing: "ficheiros em falta",
+      crawlerHeading: "Rastreador de catálogos de medicamentos",
+      crawlerDescription:
+        "Rastreia periodicamente catálogos públicos de farmácias (1mg, Apollo Pharmacy) em pequenos lotes para manter a tabela de preços atualizada.",
+      crawlerOn: "Ativado",
+      crawlerOff: "Desativado",
+      crawlerBatchHint: "páginas por lote",
+      crawlerScriptMissing: "Script do rastreador ausente nesta instalação",
+      crawlerError: "Não foi possível atualizar a opção do rastreador.",
     },
   },
 };

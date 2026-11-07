@@ -46,4 +46,4 @@ class AllergyConflict(BaseModel):
     allergy: str = Field(description="Allergy substance")
     severity: str = Field(description="Allergy severity")
     medication: str = Field(description="Medication display name")
-    matched_on: str = Field(description='"medicine_name"')
+    matched_on: str = Field(description='"medicine_name" or "catalog_generic"')

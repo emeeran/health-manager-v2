@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Database, Loader2 } from "lucide-react";
 import useSWR from "swr";
 import { BackupSection } from "./backup-section";
+import { MedicineCrawlerCard } from "./medicine-crawler-card";
 import { getDatabaseIntegrity } from "../../lib/api/database";
 import type { DatabaseIntegrity } from "../../lib/types/database";
 import { useI18n } from "../../lib/i18n";
@@ -25,6 +26,7 @@ export function DataSection() {
         {t.settings.data.heading}
       </h2>
       <IntegrityCard />
+      <MedicineCrawlerCard />
       <BackupSection />
     </section>
   );

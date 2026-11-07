@@ -24,5 +24,5 @@ async def get_drug_info(
         raise HTTPException(422, "medicine query parameter is required")
     member = await get_scoped_member(member_id, user, db)
     return await drug_info_service.lookup_drug(
-        medicine.strip(), local_only=not member.cloud_ai_consent
+        medicine.strip(), local_only=not member.cloud_ai_consent, db=db
     )

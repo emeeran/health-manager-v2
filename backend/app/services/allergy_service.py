@@ -1,8 +1,9 @@
 """Allergen–medication conflict check + allergy read helpers.
 
-Flags active medications whose normalized name contains a known allergy
-substance. Deliberately conservative: pure string matching — no drug-class
-ontology (penicillin → amoxicillin needs a class map; see backlog).
+Flags active medications whose normalized name — or whose crawled-catalog
+generic/ingredient name (``catalog_generic``) — contains a known allergy
+substance. Still deliberately conservative string matching, not a full
+drug-class ontology (penicillin-class → all beta-lactams; see backlog).
 Findings are decision-support hints for review, not certainties.
 """
 
@@ -33,12 +34,15 @@ def _contains(needle: str, haystack: str) -> bool:
 
 
 def find_conflicts(allergies: list[dict], medications: list[dict]) -> list[dict]:
-    """Match allergies against medications by normalized medicine name.
+    """Match allergies against medications by normalized medicine name, and
+    (when the caller enriched medications with ``catalog_generic``) against
+    the crawled pharmacy catalog's generic/ingredient names.
 
-    allergies: [{substance, severity}]; medications: [{medicine}].
+    allergies: [{substance, severity}]; medications: [{medicine,
+    catalog_generic?}].
 
     Returns [{allergy, severity, medication, matched_on}] where matched_on
-    is "medicine_name".
+    is "medicine_name" or "catalog_generic".
     """
     conflicts: list[dict] = []
     for allergy in allergies:
@@ -47,14 +51,21 @@ def find_conflicts(allergies: list[dict], medications: list[dict]) -> list[dict]
             continue
         severity = allergy.get("severity") or "mild"
         for med in medications:
-            med_name = normalize_drug_name(str(med.get("medicine", "")))
-            if med_name and _contains(substance, med_name):
+            med_name = str(med.get("medicine", ""))
+            matched_on = None
+            med_norm = normalize_drug_name(med_name)
+            if med_norm and _contains(substance, med_norm):
+                matched_on = "medicine_name"
+            generic = normalize_drug_name(str(med.get("catalog_generic") or ""))
+            if matched_on is None and generic and _contains(substance, generic):
+                matched_on = "catalog_generic"
+            if matched_on:
                 conflicts.append(
                     {
                         "allergy": allergy.get("substance", ""),
                         "severity": severity,
-                        "medication": med.get("medicine", ""),
-                        "matched_on": "medicine_name",
+                        "medication": med_name,
+                        "matched_on": matched_on,
                     }
                 )
     return conflicts
@@ -76,6 +87,17 @@ async def check_member_conflicts(db: AsyncSession, member_id: uuid.UUID) -> list
 
     allergies = [{"substance": a.substance, "severity": a.severity} for a in allergy_rows]
     medications = [{"medicine": m.medicine} for m in med_rows]
+    # Catalog enrichment: brand → generic from the crawled pharmacy catalog,
+    # so "aspirin allergy vs Disprin" style matches work beyond raw names.
+    from app.services import crawler_drug_service
+
+    for med in medications:
+        try:
+            info = await crawler_drug_service.catalog_info(db, med["medicine"])
+        except Exception:  # noqa: BLE001 — catalog is optional enrichment
+            info = None
+        if info and info.get("generic"):
+            med["catalog_generic"] = info["generic"]
     return find_conflicts(allergies, medications)
 
 

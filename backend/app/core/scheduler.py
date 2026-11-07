@@ -135,6 +135,13 @@ def start_scheduler() -> AsyncIOScheduler | None:
         minutes=env_int("BACKUP_TICK_MINUTES", 60),
         id="backup_database",
     )
+    # Self-gating: ticks on a cadence, no-ops unless the Settings toggle is on.
+    _scheduler.add_job(
+        jobs.crawl_medicine_catalog,
+        "interval",
+        minutes=env_int("MEDICINE_CRAWL_BATCH_MINUTES", 30),
+        id="crawl_medicine_catalog",
+    )
     # Self-gating: registered only when a dataset URL is configured; the job
     # itself is also inert-safe if the URL disappears between restarts.
     if settings.JAN_AUSHADHI_DATASET_URL:

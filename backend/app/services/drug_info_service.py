@@ -241,11 +241,14 @@ def _cache_get(key: str, now: float) -> dict | None:
     return None
 
 
-async def lookup_drug(medicine: str, local_only: bool = False) -> dict:
-    """Resolve ``medicine`` → {brand, generic, manufacturer, ingredients, source}.
+async def lookup_drug(
+    medicine: str, local_only: bool = False, db=None
+) -> dict:
+    """Resolve ``medicine`` → {brand, generic, manufacturer, ingredients, source, …}.
 
-    Resolution order: openFDA (authoritative label data) → RxNorm (generic
-    name) → AI (generic guess). Results are cached in-process for 24h
+    Resolution order: crawled pharmacy catalog (exact, when a db session is
+    supplied) → openFDA (authoritative label data) → RxNorm (generic name)
+    → AI (generic guess). Results are cached in-process for 24h
     (registry content is stable; flyouts re-open often). Never raises.
     """
     if not medicine or not medicine.strip():
@@ -256,13 +259,18 @@ async def lookup_drug(medicine: str, local_only: bool = False) -> dict:
     if cached is not None:
         return dict(cached)
 
-    result = await _resolve(medicine, local_only)
+    result = await _resolve(medicine, local_only, db)
     _cache[key] = (result, now)
     return dict(result)
 
 
-async def _resolve(medicine: str, local_only: bool) -> dict:
+async def _resolve(medicine: str, local_only: bool, db=None) -> dict:
     name = medicine.strip()
+    if db is not None:
+        info = await _catalog_drug_info(db, name)
+        if info:
+            return info
+
     info = await openfda_drug_info(name)
     if info:
         return info
@@ -296,6 +304,36 @@ def _empty() -> dict:
         "manufacturer": None,
         "ingredients": None,
         "source": "unavailable",
+    }
+
+
+async def _catalog_drug_info(db, name: str) -> dict | None:
+    """Local-first lookup in the crawled pharmacy catalog (1mg / Apollo).
+
+    Exact-or-partial via the shared offer matcher. Returns the standard
+    info shape plus uses/side_effects/price — the registries don't carry
+    those. source="catalog".
+    """
+    from app.services import crawler_drug_service
+
+    try:
+        offer = await crawler_drug_service.catalog_info(db, name)
+    except Exception:  # noqa: BLE001 — catalog is optional enrichment
+        logger.debug("catalog lookup failed for %r", name, exc_info=True)
+        return None
+    if not offer:
+        return None
+    return {
+        "brand": offer.get("name"),
+        "generic": offer.get("generic"),
+        "manufacturer": offer.get("manufacturer"),
+        "ingredients": None,
+        "source": "catalog",
+        "package": offer.get("package"),
+        "price": offer.get("price"),
+        "price_mrp": offer.get("mrp"),
+        "catalog": offer.get("catalog"),
+        "url": offer.get("url"),
     }
 
 

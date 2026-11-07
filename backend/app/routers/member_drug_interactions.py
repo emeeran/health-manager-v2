@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_scoped_member
 from app.models import Insight, Medication, User
-from app.services import drug_interaction_service
+from app.services import crawler_drug_service, drug_interaction_service
 from app.services.ai import router as ai_router
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,13 @@ async def analyze_drug_interactions(
     if provider is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "No AI provider available")
 
-    prompt = drug_interaction_service.INTERACTION_PROMPT.format(med_list=snapshot.prompt_list)
+    prompt = drug_interaction_service.INTERACTION_PROMPT.format(
+        med_list=snapshot.prompt_list,
+        drug_context=await crawler_drug_service.drug_context_block(
+            db, [m["medicine"] for m in snapshot.medicines]
+        )
+        or "(no catalog data for these medicines)",
+    )
     try:
         reply = await provider.complete(prompt)
     except Exception:  # noqa: BLE001 — a failed check degrades to empty
@@ -103,6 +109,8 @@ async def check_pair_interaction(
         medicine_a=medicine_a,
         medicine_b=medicine_b,
         member_context=f"Patient: {member.name}.",
+        drug_context=await crawler_drug_service.drug_context_block(db, [medicine_a, medicine_b])
+        or "(no catalog data for these medicines)",
     )
     try:
         reply = await provider.complete(prompt)
