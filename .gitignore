@@ -44,3 +44,6 @@ desktop/gen/
 # local source doc, never track
 /docs/Drug Schedule.pdf
 .pipeline/
+
+# crawler data exports, never track
+/medicine.csv
