@@ -12,7 +12,7 @@ AI narrative (the model narrates, never invents numbers).
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -99,6 +99,7 @@ async def _stream_kind(
     user: User,
     db: AsyncSession,
     record_id: uuid.UUID | None = None,
+    note: str | None = None,
 ):
     from app.routers.ai_insights import resolve_ai_provider
     from app.models import HealthRecord
@@ -128,6 +129,7 @@ async def _stream_kind(
         provider,
         verifier,
         record_id=record_id,
+        user_note=note,
     )
     return sse_response(source)
 
@@ -137,10 +139,13 @@ async def report_stream_endpoint(
     member_id: uuid.UUID,
     kind: str,
     record_id: uuid.UUID | None = None,
+    note: str | None = Query(default=None, max_length=2000),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _stream_kind(member_id, kind, user, db, record_id=record_id)
+    """``note``: patient-reported complaints/concerns for today's visit,
+    collected by the frontend's pre-generation confirm step."""
+    return await _stream_kind(member_id, kind, user, db, record_id=record_id, note=note)
 
 
 @router.post("/smart/stream", deprecated=True)

@@ -42,6 +42,8 @@ export interface StreamInsightOptions {
   signal?: AbortSignal;
   /** Per-visit kinds (visit_summary) stream one specific doctor_visit record. */
   recordId?: string;
+  /** Patient-reported complaints for today's visit (pre-consultation confirm step). */
+  note?: string;
 }
 
 export interface InsightStreamEvent {
@@ -64,12 +66,13 @@ export async function streamInsight(
   memberId: string,
   kind: InsightKind,
   onEvent: (event: InsightStreamEvent) => void,
-  { signal, recordId }: StreamInsightOptions = {},
+  { signal, recordId, note }: StreamInsightOptions = {},
 ): Promise<Insight> {
   const path = `/members/${encodeURIComponent(memberId)}/reports/${reportKindPath(kind)}/stream`;
-  const url = recordId
-    ? `${path}?record_id=${encodeURIComponent(recordId)}`
-    : path;
+  const query = new URLSearchParams();
+  if (recordId) query.set("record_id", recordId);
+  if (note?.trim()) query.set("note", note.trim());
+  const url = query.size > 0 ? `${path}?${query.toString()}` : path;
   // Idle-based, not absolute: narrate + audit on a local model can
   // legitimately outlast any fixed budget, and the backend heartbeats
   // keep healthy streams delivering bytes throughout.

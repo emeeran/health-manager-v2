@@ -14,6 +14,7 @@ import { getLatestInsight, streamInsight } from "../../lib/api/insights";
 import type { Insight, InsightKind } from "../../lib/types/insight";
 import { downloadText } from "../../lib/export";
 import { a5NoteFrom } from "../../lib/types/insight";
+import { INPUT_CLASS } from "../../lib/utils";
 import { Markdown } from "../shared/markdown";
 import { A5NoteView } from "./a5-note-view";
 import { AuditPanel } from "../reports/audit-panel";
@@ -53,6 +54,7 @@ export function InsightTool({
   );
   const [running, setRunning] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmNote, setConfirmNote] = useState("");
   const [report, setReport] = useState<Insight | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [reached, setReached] = useState<Record<string, true>>({});
@@ -63,7 +65,8 @@ export function InsightTool({
   useEffect(() => () => abortRef.current?.abort(), []);
 
   // C/c style confirmation: C (or Enter) continues, Esc (or n) cancels.
-  // Ignore keystrokes typed into form fields — they belong to the user.
+  // Keystrokes in form fields (the complaints textarea) belong to the user —
+  // there, Ctrl+Enter continues instead.
   useEffect(() => {
     if (!confirming) return;
     function onKeyDown(event: KeyboardEvent) {
@@ -83,7 +86,7 @@ export function InsightTool({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirming]);
 
-  async function handleRun() {
+  async function handleRun(userNote?: string) {
     if (kind === "visit_summary" && !recordId) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -105,7 +108,7 @@ export function InsightTool({
             setReached((prev) => ({ ...prev, [event.stage]: true }));
           }
         },
-        { signal: controller.signal, recordId },
+        { signal: controller.signal, recordId, note: userNote },
       );
       setReport(saved);
       await mutate(saved, { revalidate: false });
@@ -131,6 +134,12 @@ export function InsightTool({
     } else {
       void handleRun();
     }
+  }
+
+  function continueRun() {
+    setConfirming(false);
+    void handleRun(confirmNote);
+    setConfirmNote("");
   }
 
   return (
@@ -164,30 +173,53 @@ export function InsightTool({
         <div
           role="alertdialog"
           aria-label="Confirm generation"
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+          className="space-y-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
         >
-          <span className="text-muted-foreground">
-            Generate now from this member's current records?
-          </span>
-          <span className="grow" />
-          <button
-            type="button"
-            autoFocus
-            onClick={() => {
-              setConfirming(false);
-              void handleRun();
-            }}
-            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Continue (C)
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
-          >
-            Cancel (Esc)
-          </button>
+          <label className="block space-y-1">
+            <span className="font-medium">
+              Today's complaints / symptoms{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional — added to the note's chief complaints)
+              </span>
+            </span>
+            <textarea
+              rows={2}
+              value={confirmNote}
+              autoFocus
+              onChange={(e) => setConfirmNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  continueRun();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setConfirming(false);
+                }
+              }}
+              placeholder="e.g. headache for 3 days, poor sleep — Enter for a new line, Ctrl+Enter to continue"
+              className={`${INPUT_CLASS} w-full resize-y`}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">
+              Generate from this member's current records?
+            </span>
+            <span className="grow" />
+            <button
+              type="button"
+              onClick={continueRun}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Continue (C)
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+            >
+              Cancel (Esc)
+            </button>
+          </div>
         </div>
       )}
 

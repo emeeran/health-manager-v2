@@ -7,6 +7,7 @@ unpatched call can never reach a real provider.
 """
 
 import json
+import uuid
 
 import pytest_asyncio
 from sqlalchemy import select
@@ -115,6 +116,72 @@ async def test_chat_explicit_title_is_never_overwritten(
     listing = await auth_client.get("/api/v1/conversations")
     titles = {c["id"]: c["title"] for c in listing.json()}
     assert titles[conversation["id"]] == "Surgery questions"
+
+
+# ── pre-consultation patient-reported complaints ──────────────────────────
+
+
+class _RecordingProvider:
+    def __init__(self) -> None:
+        self.name = "fake"
+        self.model = "fake-model"
+        self.local = True
+        self.timeout = 5
+        self.calls: list[dict] = []
+
+    async def available(self) -> bool:
+        return True
+
+    async def complete(self, prompt: str, **kwargs) -> str:
+        self.calls.append({"prompt": prompt, **kwargs})
+        return (
+            '{"date": "2026-11-08", "member_name": "Asha", '
+            '"chronic_conditions": [], "chief_complaints": ["headache"], '
+            '"to_discuss": [], "current_medications": []}'
+        )
+
+
+async def test_user_note_reaches_pre_consultation_prompt(auth_client):
+    from app.services import report_service
+
+    member = await _create_member(auth_client, "Asha")
+    provider = _RecordingProvider()
+
+    async for _ in report_service.report_stream(
+        SessionLocal(),
+        uuid.UUID(member["id"]),
+        "pre_consultation",
+        provider,
+        None,
+        user_note="headache for 3 days, poor sleep",
+    ):
+        pass
+
+    assert provider.calls, "provider was never called"
+    assert "headache for 3 days, poor sleep" in provider.calls[0]["prompt"]
+    assert "PATIENT-REPORTED" in provider.calls[0]["prompt"]
+
+
+async def test_reports_stream_endpoint_accepts_note_query(auth_client):
+    from app.routers import ai_insights
+
+    member = await _create_member(auth_client, "Bala")
+    provider = _RecordingProvider()
+
+    async def fake_resolve(member_id, user, db):
+        return provider, None
+
+    original = ai_insights.resolve_ai_provider
+    ai_insights.resolve_ai_provider = fake_resolve
+    try:
+        resp = await auth_client.post(
+            f"/api/v1/members/{member['id']}/reports/pre-consultation/stream",
+            params={"note": "knee pain since Monday"},
+        )
+        assert resp.status_code == 200, resp.text
+    finally:
+        ai_insights.resolve_ai_provider = original
+    assert "knee pain since Monday" in provider.calls[0]["prompt"]
 
 
 # ── local auto-backup schedule ────────────────────────────────────────────

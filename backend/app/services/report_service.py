@@ -861,12 +861,16 @@ async def report_stream(
     provider,
     verifier,
     record_id: uuid.UUID | None = None,
+    user_note: str | None = None,
 ) -> AsyncIterator[dict]:
     """Snapshot (code) → one narrative call (model) → persist + audit.
 
     ``pre_consultation`` is structured: the model fills the PreConsultationA5
     schema (same model the prompt rendered), and ``content`` is the note's
     plain-text rendering — the printable A5 sheet's source of truth.
+    ``user_note`` is patient-reported context (today's complaints) collected
+    by the confirm step — patient input, never treated as recorded ground
+    truth.
     """
     from app.services.ai.verification import schedule_audit
 
@@ -885,6 +889,14 @@ async def report_stream(
             PreConsultationA5, title="PRE-CONSULTATION A5 NOTE SCHEMA"
         ),
     )
+    if user_note and user_note.strip():
+        prompt += (
+            "\n\nPATIENT-REPORTED FOR TODAY'S VISIT (the patient's own words, "
+            "collected at confirm time; not recorded diagnosis):\n"
+            f"{user_note.strip()}\n"
+            "Reflect these in chief_complaints, and in to_discuss where "
+            "relevant. Ground everything else in GROUND TRUTH."
+        )
     yield {"stage": "narrating", "message": "AI writing report"}
     collected: list[str] = []
     stream_fn = None if structured else getattr(provider, "stream", None)
