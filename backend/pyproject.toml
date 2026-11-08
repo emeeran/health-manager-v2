@@ -1,6 +1,6 @@
 [project]
 name = "health-manager-v2"
-version = "1.6.0"
+version = "1.7.0"
 description = "Self-hosted family health record manager — clean-room rebuild."
 readme = "README.md"
 requires-python = ">=3.11"
