@@ -209,7 +209,7 @@ async def test_dashboard_scores_alerts_activity(api, session_factory):
     await _create_record(
         api,
         asha["id"],
-        record_type="lab_report",
+        record_type="lab_test",
         record_date=(today - timedelta(days=40)).isoformat(),
     )
     # Vitals: height 170cm + weight 95kg → BMI ~32.9 (obese, penalised).

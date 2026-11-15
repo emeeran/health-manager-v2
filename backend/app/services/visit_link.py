@@ -19,9 +19,17 @@ VISIT_LINK_DAYS = 7
 
 
 async def find_linked_visit(
-    db: AsyncSession, member_id: uuid.UUID, record_date: date | None
+    db: AsyncSession,
+    member_id: uuid.UUID,
+    record_date: date | None,
+    exclude_id: uuid.UUID | None = None,
 ) -> HealthRecord | None:
-    """Nearest doctor visit for this member within ±VISIT_LINK_DAYS, or None."""
+    """Nearest doctor visit for this member within ±VISIT_LINK_DAYS, or None.
+
+    ``exclude_id`` skips a record already in the session — a pending
+    doctor_visit autoflushes before the SELECT and would otherwise find
+    itself as the nearest (0-day) match.
+    """
     if record_date is None:
         return None
     window_start = record_date - timedelta(days=VISIT_LINK_DAYS)
@@ -33,6 +41,7 @@ async def find_linked_visit(
                 HealthRecord.record_type == "doctor_visit",
                 HealthRecord.is_deleted.is_(False),
                 HealthRecord.record_date.between(window_start, window_end),
+                HealthRecord.id != exclude_id if exclude_id else True,
             )
         )
     )

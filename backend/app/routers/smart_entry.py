@@ -46,7 +46,7 @@ PARSE_SYSTEM = (
     "the text — never invent values. Keep the summary to one brief, "
     "professional sentence. Respond with JSON only: "
     '{"member_name": str|null, "record_type": one of doctor_visit|'
-    "lab_report|prescription|vaccination|imaging|other|null, "
+    "eye_checkup|lab_test|other|null, "
     '"record_date": "YYYY-MM-DD"|null, "diagnosis": str|null, '
     '"summary": str|null, "provider_name": str|null, '
     '"medications": [{"medicine": str, "dosage": str|null, "timing": '

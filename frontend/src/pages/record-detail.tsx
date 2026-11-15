@@ -132,7 +132,7 @@ export default function RecordDetail() {
         Back to member
       </Link>
 
-      {(record.record_type === "prescription" || extractedMedsCount > 0) && (
+      {extractedMedsCount > 0 && (
         <>
           <CurrentMedicationsPrompt memberId={memberId} />
           <TrackPrescriptionMeds memberId={memberId} record={record} />

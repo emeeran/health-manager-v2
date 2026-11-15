@@ -17,7 +17,7 @@ function recordWithMeds(meds: unknown): HealthRecord {
   return {
     id: "r1",
     member_id: "mem1",
-    record_type: "prescription",
+    record_type: "doctor_visit",
     record_date: "2026-09-01",
     record_time: null,
     clinical_data: { medications: meds },

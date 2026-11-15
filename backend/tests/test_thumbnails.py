@@ -41,7 +41,7 @@ async def _upload(
     record = (
         await client.post(
             f"/api/v1/members/{member['id']}/records",
-            json={"record_type": "lab_report", "record_date": "2026-04-01"},
+            json={"record_type": "lab_test", "record_date": "2026-04-01"},
         )
     ).json()
     attachment = (

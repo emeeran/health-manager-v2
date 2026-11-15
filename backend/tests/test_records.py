@@ -43,14 +43,14 @@ async def test_list_orders_desc_and_filters_by_type(auth_client):
     await _create_record(auth_client, member_id, record_date="2026-01-01")
     await _create_record(auth_client, member_id, record_date="2026-06-01")
     lab = await _create_record(
-        auth_client, member_id, record_type="lab_report", record_date="2026-03-01"
+        auth_client, member_id, record_type="lab_test", record_date="2026-03-01"
     )
 
     listing = (await auth_client.get(f"/api/v1/members/{member_id}/records")).json()
     assert [r["record_date"] for r in listing] == ["2026-06-01", "2026-03-01", "2026-01-01"]
 
     labs = (
-        await auth_client.get(f"/api/v1/members/{member_id}/records?record_type=lab_report")
+        await auth_client.get(f"/api/v1/members/{member_id}/records?record_type=lab_test")
     ).json()
     assert [r["id"] for r in labs] == [lab["id"]]
 

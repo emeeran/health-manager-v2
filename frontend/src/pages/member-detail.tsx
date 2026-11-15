@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   CalendarPlus,
   FileText,
-  Loader2,
   NotebookPen,
   Pencil,
   Phone,
@@ -15,7 +14,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -35,16 +34,8 @@ import { TabErrorBoundary } from "../components/shared/tab-error-boundary";
 import RecordWizard from "../components/records/record-wizard";
 import { ShareDialog } from "../components/members/share-dialog";
 import { MemberEditDialog } from "../components/members/member-edit-dialog";
-import { createRecord } from "../lib/api/records";
-import { lastDoctorName } from "../lib/wizard-state";
-import { recordTypeMeta } from "../lib/record-types";
-import {
-  RECORD_TYPES,
-  type HealthRecord,
-  type RecordType,
-} from "../lib/types/record";
+import { type HealthRecord } from "../lib/types/record";
 import type { Member } from "../lib/types/member";
-import { INPUT_CLASS, todayIso } from "../lib/utils";
 
 type TabId =
   "overview" | "records" | "trends" | "journal" | "safety" | "conditions";
@@ -285,10 +276,7 @@ export default function MemberDetail() {
   );
 }
 
-/**
- * Record creation modal: the multi-step wizard is the default path; the
- * classic single form stays available as a toggle for quick entries.
- */
+/** Record creation modal: the guided wizard (upload → extract) is the only path. */
 function RecordCreateModal({
   memberId,
   onClose,
@@ -298,8 +286,6 @@ function RecordCreateModal({
   onClose: () => void;
   onCreated: (record: HealthRecord, attachedFiles?: number) => void;
 }) {
-  const [mode, setMode] = useState<"wizard" | "classic">("wizard");
-
   // Escape closes the modal (routed through the global overlay stack).
   useEscClose(true, onClose);
 
@@ -311,39 +297,7 @@ function RecordCreateModal({
       aria-label="New record"
     >
       <div className="w-full max-w-2xl space-y-3">
-        <div className="flex items-center justify-between">
-          <div
-            role="group"
-            aria-label="Form mode"
-            className="flex rounded-lg border border-border bg-card p-0.5"
-          >
-            <button
-              type="button"
-              aria-pressed={mode === "wizard"}
-              onClick={() => setMode("wizard")}
-              className={
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
-                (mode === "wizard"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              Guided wizard
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "classic"}
-              onClick={() => setMode("classic")}
-              className={
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
-                (mode === "classic"
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              Classic form
-            </button>
-          </div>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -354,132 +308,9 @@ function RecordCreateModal({
           </button>
         </div>
 
-        {mode === "wizard" ? (
-          <RecordWizard memberId={memberId} onCreated={onCreated} />
-        ) : (
-          <CreateRecordForm memberId={memberId} onCreated={onCreated} />
-        )}
+        <RecordWizard memberId={memberId} onCreated={onCreated} />
       </div>
     </div>
-  );
-}
-
-function CreateRecordForm({
-  memberId,
-  onCreated,
-}: {
-  memberId: string;
-  onCreated: (record: HealthRecord) => void;
-}) {
-  const [recordType, setRecordType] = useState<RecordType>("doctor_visit");
-  const [recordDate, setRecordDate] = useState(todayIso);
-  const [diagnosis, setDiagnosis] = useState("");
-  const [summary, setSummary] = useState("");
-  const [doctorName, setDoctorName] = useState(lastDoctorName);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const record = await createRecord(memberId, {
-        record_type: recordType,
-        record_date: recordDate,
-        ...(diagnosis ? { diagnosis } : {}),
-        ...(summary ? { summary } : {}),
-        ...(doctorName.trim() ? { doctor_name: doctorName.trim() } : {}),
-      });
-      onCreated(record);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create record.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-xl border border-border bg-card p-5 shadow-sm"
-      aria-label="New record"
-    >
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-        <CalendarPlus className="size-4" aria-hidden />
-        New record
-      </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1.5 text-sm font-medium">
-          Type
-          <select
-            value={recordType}
-            onChange={(e) => setRecordType(e.target.value as RecordType)}
-            className={INPUT_CLASS}
-          >
-            {RECORD_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {recordTypeMeta(value).label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-sm font-medium">
-          Date
-          <input
-            type="date"
-            required
-            value={recordDate}
-            onChange={(e) => setRecordDate(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </label>
-        <label className="space-y-1.5 text-sm font-medium">
-          Doctor name
-          <input
-            placeholder="Optional"
-            value={doctorName}
-            onChange={(e) => setDoctorName(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </label>
-        <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
-          Diagnosis
-          <input
-            placeholder="Optional"
-            value={diagnosis}
-            onChange={(e) => setDiagnosis(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </label>
-        <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
-          Summary
-          <textarea
-            rows={3}
-            placeholder="Optional"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </label>
-      </div>
-      {error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
-        >
-          {error}
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={submitting}
-        className="mt-4 flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
-        {submitting && <Loader2 className="size-4 animate-spin" aria-hidden />}
-        Create record
-      </button>
-    </form>
   );
 }
 

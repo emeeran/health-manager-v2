@@ -4,11 +4,8 @@ export type ConfidentialityLevel = "household" | "caregiver" | "private";
 
 export const RECORD_TYPES = [
   "doctor_visit",
-  "lab_report",
-  "prescription",
-  "discharge_summary",
-  "imaging",
-  "vaccination",
+  "eye_checkup",
+  "lab_test",
   "other",
 ] as const;
 

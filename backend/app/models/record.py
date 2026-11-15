@@ -12,11 +12,8 @@ from app.models.types import EncryptedText
 
 class RecordType(str, enum.Enum):
     DOCTOR_VISIT = "doctor_visit"
-    LAB_REPORT = "lab_report"
-    PRESCRIPTION = "prescription"
-    DISCHARGE_SUMMARY = "discharge_summary"
-    IMAGING = "imaging"
-    VACCINATION = "vaccination"
+    EYE_CHECKUP = "eye_checkup"
+    LAB_TEST = "lab_test"
     OTHER = "other"
 
 

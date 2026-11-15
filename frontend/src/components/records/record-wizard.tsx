@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Loader2, Paperclip } from "lucide-react";
 import useSWR from "swr";
-import { createRecord, listRecords } from "../../lib/api/records";
+import { createRecord } from "../../lib/api/records";
 import { uploadAttachments } from "../../lib/api/attachments";
 import { listProviders } from "../../lib/api/providers";
 import { recordTypeMeta } from "../../lib/record-types";
@@ -14,52 +14,6 @@ import {
 } from "../../lib/wizard-state";
 import { RECORD_TYPES, type HealthRecord } from "../../lib/types/record";
 import { INPUT_CLASS } from "../../lib/utils";
-
-/** Prescription integration hint: shows which doctor visit a prescription
- * will link to (±7 days) and what auto-fills from it, or that it stays
- * standalone. Purely informational — linking happens server-side. */
-function VisitLinkHint({
-  memberId,
-  recordDate,
-}: {
-  memberId: string;
-  recordDate: string;
-}) {
-  const { data: visits } = useSWR(
-    recordDate ? ["records", memberId, "doctor_visit"] : null,
-    () => listRecords(memberId, { record_type: "doctor_visit", limit: 50 }),
-  );
-
-  if (!recordDate || !visits?.length) return null;
-  const date = new Date(`${recordDate}T00:00:00`);
-  const nearby = visits
-    .map((visit) => ({
-      visit,
-      days: Math.abs(
-        (date.getTime() - new Date(`${visit.record_date}T00:00:00`).getTime()) /
-          86_400_000,
-      ),
-    }))
-    .filter(({ days }) => days <= 7)
-    .sort((a, b) => a.days - b.days);
-
-  if (nearby.length === 0) {
-    return (
-      <p className="sm:col-span-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-        No doctor visit within 7 days of this date — the prescription will be
-        saved as standalone.
-      </p>
-    );
-  }
-  const linked = nearby[0].visit;
-  return (
-    <p className="sm:col-span-2 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
-      Will link to the {linked.record_date} doctor visit
-      {linked.doctor_name ? ` with ${linked.doctor_name}` : ""} — doctor and
-      diagnosis auto-fill from it when left empty.
-    </p>
-  );
-}
 
 /**
  * Single-page new-record form (Type | Date / Doctor | Reason /
@@ -133,9 +87,6 @@ export default function RecordWizard({
       aria-label="New record form"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        {draft.recordType === "prescription" && (
-          <VisitLinkHint memberId={memberId} recordDate={draft.recordDate} />
-        )}
         <label className="space-y-1.5 text-sm font-medium">
           Type
           <select

@@ -12,7 +12,7 @@ async def _setup_record(client) -> tuple[str, str]:
     record = (
         await client.post(
             f"/api/v1/members/{member['id']}/records",
-            json={"record_type": "lab_report", "record_date": "2026-02-20"},
+            json={"record_type": "lab_test", "record_date": "2026-02-20"},
         )
     ).json()
     return member["id"], record["id"]

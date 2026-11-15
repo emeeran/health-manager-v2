@@ -169,7 +169,7 @@ async def test_fhir_import_creates_and_is_idempotent(auth_client, mount_import_r
 
         vaccination_rows = (
             await session.scalars(
-                select(HealthRecord).where(HealthRecord.record_type == "vaccination")
+                select(HealthRecord).where(HealthRecord.record_type == "other")
             )
         ).all()
         assert len(vaccination_rows) == 1

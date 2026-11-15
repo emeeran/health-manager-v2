@@ -320,7 +320,7 @@ async def snapshot_health_insights(db, member_id) -> dict:
             .where(
                 HealthRecord.member_id == member_id,
                 HealthRecord.is_deleted.is_(False),
-                HealthRecord.record_type.in_(("doctor_visit", "discharge_summary")),
+                HealthRecord.record_type.in_(("doctor_visit", "eye_checkup")),
             )
             .order_by(HealthRecord.record_date.desc())
             .limit(20)

@@ -99,7 +99,7 @@ async def test_merge_without_provider_is_503(api):
     assert resp.status_code == 503, resp.text
 
 
-# ── prescription ↔ doctor-visit linking ───────────────────────────────
+# ── visit ↔ nearby-visit linking ──────────────────────────────────────
 
 
 async def test_prescription_autofills_from_nearby_visit(api):
@@ -109,7 +109,7 @@ async def test_prescription_autofills_from_nearby_visit(api):
     resp = await api.post(
         f"/api/v1/members/{member['id']}/records",
         json={
-            "record_type": "prescription",
+            "record_type": "doctor_visit",
             "record_date": "2026-05-06",
             "prescription_text": "Telmisartan 40 mg",
         },
@@ -127,7 +127,7 @@ async def test_prescription_standalone_without_nearby_visit(api):
     resp = await api.post(
         f"/api/v1/members/{member['id']}/records",
         json={
-            "record_type": "prescription",
+            "record_type": "doctor_visit",
             "record_date": "2026-05-06",
             "prescription_text": "Telmisartan 40 mg",
         },
@@ -145,7 +145,7 @@ async def test_prescription_autofill_never_overwrites(api):
     resp = await api.post(
         f"/api/v1/members/{member['id']}/records",
         json={
-            "record_type": "prescription",
+            "record_type": "doctor_visit",
             "record_date": "2026-05-05",
             "doctor_name": "Dr Meera",
             "prescription_text": "Telmisartan 40 mg",
@@ -164,7 +164,7 @@ async def test_visit_autofill_scopes_to_member(api):
 
     resp = await api.post(
         f"/api/v1/members/{asha['id']}/records",
-        json={"record_type": "prescription", "record_date": "2026-05-05"},
+        json={"record_type": "doctor_visit", "record_date": "2026-05-05"},
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["doctor_name"] is None

@@ -26,6 +26,7 @@ from app.services.dedup_service import DedupService, compute_content_hash
 from app.services.extraction_apply import persist_clinical_data
 from app.services.visit_link import apply_visit_autofill, find_linked_visit
 
+
 router = APIRouter(prefix="/members/{member_id}/records", tags=["records"])
 
 # Confidentiality ceilings (Phase 10, v1's confidentiality semantics):
@@ -155,6 +156,9 @@ async def create_record(
     await get_scoped_member(member_id, user, db)
     await _validate_provider(member_id, body.provider_id, user, db)
     record = HealthRecord(
+        # Explicit id: the visit-link query below excludes this row by id,
+        # and the column default only fires at INSERT — too late.
+        id=uuid.uuid4(),
         member_id=member_id,
         record_type=body.record_type.value,
         record_date=body.record_date,
@@ -175,10 +179,12 @@ async def create_record(
         ),
     )
     db.add(record)
-    if body.record_type is RecordType.PRESCRIPTION:
-        # Prescription integration: a prescription filed near a doctor visit
-        # belongs to it — fill empty doctor/provider/diagnosis from the visit.
-        visit = await find_linked_visit(db, member_id, body.record_date)
+    if body.record_type is RecordType.DOCTOR_VISIT:
+        # A visit filed near a doctor visit belongs to it — fill empty
+        # doctor/provider/diagnosis from the visit (never overwrites).
+        visit = await find_linked_visit(
+            db, member_id, body.record_date, exclude_id=record.id
+        )
         if visit is not None:
             apply_visit_autofill(record, visit)
     await db.flush()

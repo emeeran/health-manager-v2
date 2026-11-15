@@ -132,11 +132,15 @@ async def extract_batch_stream(
                                 logger.warning(
                                     "consolidated report failed for %s: %s", filename, exc
                                 )
-                        # Extracted meds make this a prescription; link it to a
-                        # nearby doctor visit the same way manual filing does.
-                        record_type = (
-                            RecordType.PRESCRIPTION if clinical.get("medications") else RecordType.OTHER
-                        )
+                        # Meds → visit, lab rows → lab test, everything else
+                        # → other; visits link to a nearby doctor visit the
+                        # same way manual filing does.
+                        if clinical.get("medications"):
+                            record_type = RecordType.DOCTOR_VISIT
+                        elif clinical.get("labs") or clinical.get("vitals"):
+                            record_type = RecordType.LAB_TEST
+                        else:
+                            record_type = RecordType.OTHER
                         record = HealthRecord(
                             member_id=member_id,
                             record_type=record_type.value,
@@ -148,7 +152,7 @@ async def extract_batch_stream(
                             content_hash=content_hash,
                         )
                         task_db.add(record)
-                        if record_type is RecordType.PRESCRIPTION:
+                        if record_type is RecordType.DOCTOR_VISIT:
                             visit = await find_linked_visit(task_db, member_id, record_date)
                             if visit is not None:
                                 apply_visit_autofill(record, visit)

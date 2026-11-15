@@ -29,7 +29,7 @@ describe("form validation", () => {
   it("blocks submission without a date", () => {
     const draft = {
       ...initialWizardDraft(),
-      recordType: "lab_report" as const,
+      recordType: "lab_test" as const,
       recordDate: "",
     };
     expect(canSubmit(draft)).toBe(false);

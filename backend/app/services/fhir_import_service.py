@@ -421,21 +421,21 @@ async def apply_staged(db: AsyncSession, member_id, staged: dict) -> dict:
         await db.scalars(
             select(HealthRecord.content_hash).where(
                 HealthRecord.member_id == member_id,
-                HealthRecord.record_type == RecordType.VACCINATION.value,
+                HealthRecord.record_type == RecordType.OTHER.value,
             )
         )
     )
     for v in staged["vaccinations"]:
         day = v["date_administered"] or date.today()
         payload = {"vaccine": v["name"]}
-        content_hash = compute_content_hash(RecordType.VACCINATION.value, day, payload)
+        content_hash = compute_content_hash(RecordType.OTHER.value, day, payload)
         if content_hash in existing_hashes:
             skipped_existing["vaccinations"] += 1
             continue
         db.add(
             HealthRecord(
                 member_id=member_id,
-                record_type=RecordType.VACCINATION.value,
+                record_type=RecordType.OTHER.value,
                 record_date=day,
                 summary=v["name"][:200],
                 content_hash=content_hash,

@@ -277,7 +277,7 @@ async def test_history_feed_merges_domains(auth_client):
 
     record = await auth_client.post(
         f"/api/v1/members/{mid}/records",
-        json={"record_type": "lab_report", "record_date": "2026-10-01", "summary": "Panel"},
+        json={"record_type": "lab_test", "record_date": "2026-10-01", "summary": "Panel"},
     )
     assert record.status_code == 201
 
