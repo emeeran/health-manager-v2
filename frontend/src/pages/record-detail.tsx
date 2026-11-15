@@ -181,25 +181,28 @@ export default function RecordDetail() {
         className="space-y-3 rounded-xl border border-border bg-card p-5 shadow-sm"
         aria-label="Record details"
       >
-        <DetailField label="Diagnosis" value={record.diagnosis} />
-        <DetailField label="Investigations" value={record.investigations} />
-        <DetailField label="Doctor" value={record.doctor_name} />
+        {/* Declutter: only fields that actually carry data render. */}
+        {record.diagnosis && <DetailField label="Diagnosis" value={record.diagnosis} />}
+        {record.investigations && (
+          <DetailField label="Investigations" value={record.investigations} />
+        )}
+        {record.doctor_name && <DetailField label="Doctor" value={record.doctor_name} />}
         {record.provider_name && (
           <DetailField label="Provider" value={record.provider_name} />
         )}
-        <DetailField label="Summary" value={record.summary} multiline />
-        <DetailField
-          label="Prescription"
-          value={record.prescription_text}
-          multiline
-        />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Tags
-          </p>
-          {record.tags.length === 0 ? (
-            <p className="mt-1 text-sm text-muted-foreground">—</p>
-          ) : (
+        {record.summary && <DetailField label="Summary" value={record.summary} multiline />}
+        {record.prescription_text && (
+          <DetailField
+            label="Prescription"
+            value={record.prescription_text}
+            multiline
+          />
+        )}
+        {record.tags.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Tags
+            </p>
             <ul className="mt-1.5 flex flex-wrap gap-1.5">
               {record.tags.map((tag) => (
                 <li
@@ -210,8 +213,8 @@ export default function RecordDetail() {
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {hasClinicalData && (

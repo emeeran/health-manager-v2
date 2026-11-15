@@ -110,6 +110,15 @@ export function AuthForm({ mode, onSubmit }: AuthFormProps) {
                   name="username"
                   autoComplete="username"
                   required
+                  // Server validates this pattern too; declaring it here turns
+                  // the raw "String should match pattern" 422 into a native,
+                  // readable hint before anything is sent.
+                  pattern={mode === "register" ? "[a-zA-Z0-9._-]+" : undefined}
+                  title={
+                    mode === "register"
+                      ? "Letters, numbers, dots, dashes and underscores only"
+                      : undefined
+                  }
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
