@@ -1,8 +1,9 @@
 import { CalendarPlus, Loader2, Paperclip } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import BatchUpload from "../records/batch-upload";
-import { recordTypeMeta } from "../../lib/record-types";
-import type { HealthRecord } from "../../lib/types/record";
+import { recordTypeMeta, RECORD_TYPE_META } from "../../lib/record-types";
+import { RECORD_TYPES, type HealthRecord, type RecordType } from "../../lib/types/record";
 import { ConfidentialityBadge } from "../records/confidentiality";
 
 interface DateGroup {
@@ -35,16 +36,76 @@ export function RecordsTab({
   memberId: string;
   memberName?: string;
 }) {
+  const [typeFilter, setTypeFilter] = useState<RecordType | "all">("all");
+  const filtered =
+    typeFilter === "all"
+      ? records
+      : records?.filter((r) => r.record_type === typeFilter);
+
   return (
     <div className="space-y-6">
       <BatchUpload memberId={memberId} />
+      {records && records.length > 0 && (
+        <div
+          role="group"
+          aria-label="Filter by record type"
+          className="flex flex-wrap gap-1.5"
+        >
+          <FilterChip
+            active={typeFilter === "all"}
+            label="All"
+            count={records.length}
+            onClick={() => setTypeFilter("all")}
+          />
+          {RECORD_TYPES.map((type) => {
+            const count = records.filter((r) => r.record_type === type).length;
+            if (count === 0) return null;
+            return (
+              <FilterChip
+                key={type}
+                active={typeFilter === type}
+                label={RECORD_TYPE_META[type].label}
+                count={count}
+                onClick={() => setTypeFilter(type)}
+              />
+            );
+          })}
+        </div>
+      )}
       <RecordsTimeline
-        records={records}
+        records={filtered}
         isLoading={isLoading}
         memberId={memberId}
         memberName={memberName}
       />
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+        active
+          ? "border-primary/40 bg-primary/10 text-primary"
+          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      {label} <span className="text-[10px] opacity-70">{count}</span>
+    </button>
   );
 }
 
@@ -75,7 +136,7 @@ function RecordsTimeline({
         <p className="text-sm font-medium">No records yet</p>
         <p className="text-sm text-muted-foreground">
           {memberName
-            ? `Add ${memberName}'s first doctor visit, lab report or prescription.`
+            ? `Add ${memberName}'s first document — it gets extracted automatically.`
             : "Add the first record with the button above."}
         </p>
       </div>
