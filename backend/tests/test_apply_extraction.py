@@ -209,3 +209,41 @@ async def test_apply_extraction_merges_across_documents(auth_client):
     assert [lab["name"] for lab in data["labs"]] == ["CBC"]
     # Summary: the later document's text wins (explicitly provided).
     assert got.json()["summary"] == "Labs attached."
+
+
+async def test_apply_extraction_keeps_glucose_context(auth_client):
+    """FBG/PPBG/RBG tracking: the glucose context an extraction reports
+    (fasting / post_prandial / random) reaches the VitalMeasurement row."""
+    member_id = await _member(auth_client)
+    record = await _record(auth_client, member_id)
+    resp = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/{record['id']}/apply-extraction",
+        json={
+            "clinical_data": {
+                "vitals": [
+                    {
+                        "type": "blood_glucose",
+                        "value": 96,
+                        "unit": "mg/dL",
+                        "glucose_context": "fasting",
+                    },
+                    {
+                        "type": "blood_glucose",
+                        "value": 186,
+                        "unit": "mg/dL",
+                        "glucose_context": "post_prandial",
+                    },
+                ]
+            },
+            "record_date": "2026-11-01",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    listing = (
+        await auth_client.get(f"/api/v1/members/{member_id}/vitals")
+    ).json()
+    glucose = [v for v in listing if v["vital_type"] == "blood_glucose"]
+    assert sorted(v["glucose_context"] for v in glucose) == [
+        "fasting",
+        "post_prandial",
+    ]

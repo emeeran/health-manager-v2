@@ -35,7 +35,8 @@ does not mention:
     {"name": "Hemoglobin", "result": "7.8", "units": "g/dL", "reference": "12.0 - 15.0", "flag": "low", "date": "2025-11-15"}
   ],
   "vitals": [
-    {"type": "blood_pressure", "value": 142, "value_secondary": 85, "unit": "mmHg", "glucose_context": null}
+    {"type": "blood_pressure", "value": 142, "value_secondary": 85, "unit": "mmHg", "glucose_context": null},
+    {"type": "blood_glucose", "value": 96, "value_secondary": null, "unit": "mg/dL", "glucose_context": "fasting"}
   ]
 }
 ```
@@ -46,19 +47,22 @@ does not mention:
    Fill every field the document supports; null only when truly absent.
 2. Omit sections that have no data (use empty lists / null), never guess.
 3. Blood pressure goes in ONE vitals entry: value = systolic, value_secondary = diastolic, unit = "mmHg".
-4. Lab flag: compare result against the reference range in the document; null if no range given.
-5. Dates: use the document's own date. When a document carries results from
+4. Blood glucose vitals: set "glucose_context" from the document —
+   "fasting" (fasting / FBS / FBG / overnight), "post_prandial" (after
+   meals / PPBS / PPBG / 2-hour), "random" (RBS / RBG / no timing stated).
+5. Lab flag: compare result against the reference range in the document; null if no range given.
+6. Dates: use the document's own date. When a document carries results from
    several collection dates (comparative lab tables, prior baselines), emit
    ONE entry per parameter per date with that entry's own "date".
-6. Preserve the original language of names and values.
-7. The summary integrates the whole document like a consolidated report:
+7. Preserve the original language of names and values.
+8. The summary integrates the whole document like a consolidated report:
    key findings, their clinical interpretation, and the management plan.
    Findings only — no process narration ("the document shows…"), no filler.
-8. Imaging: one entry per study (ultrasound, X-ray, CT, MRI…) with the
+9. Imaging: one entry per study (ultrasound, X-ray, CT, MRI…) with the
    organ-wise findings kept in document order. Screening studies that exist
    purely to rule out disease (Pap smear, mammography) go under
    "screenings" with their formal grade/category, not "imaging".
-9. Medication "indication": the stated target condition (e.g. "Severe iron
+10. Medication "indication": the stated target condition (e.g. "Severe iron
    deficiency anemia"); null if the document doesn't say.
 
 ## Document content

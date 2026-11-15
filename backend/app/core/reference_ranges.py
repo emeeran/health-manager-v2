@@ -69,6 +69,13 @@ GLUCOSE_RANGES = {
         "citation": "ADA Standards of Care",
         "source": dict(_ADA),
     },
+    "random": {
+        "normal_low": 70,
+        "normal_high": 140,
+        "unit": "mg/dL",
+        "citation": "ADA Standards of Care",
+        "source": dict(_ADA),
+    },
 }
 
 # Common lab bands (adult); the lab anomaly notes cite these.

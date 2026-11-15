@@ -79,6 +79,7 @@ def _parse_vitals(entries: list, member_id, record_id, measured_at) -> list[Vita
                 value_num=value,
                 value_secondary=_float(entry.get("value_secondary")),
                 unit=entry.get("unit"),
+                glucose_context=entry.get("glucose_context"),
                 measured_at=measured_at,
             )
         )

@@ -17,6 +17,7 @@ export interface ReferenceRanges {
   blood_glucose: {
     fasting: GlucoseReferenceRange;
     post_prandial: GlucoseReferenceRange;
+    random: GlucoseReferenceRange;
   };
 }
 

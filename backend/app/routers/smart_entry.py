@@ -24,6 +24,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, get_household_id, get_scoped_member
 from app.models import (
     FamilyMember,
+    GlucoseContext,
     HealthRecord,
     LabFlag,
     LabResult,
@@ -56,7 +57,9 @@ PARSE_SYSTEM = (
     'low|normal|high|null}], "vitals": [{"vital_type": one of '
     "blood_pressure|blood_glucose|weight|height|temperature|heart_rate|"
     'spo2|hba1c, "value_num": number, "value_secondary": number|null, '
-    '"unit": str|null}], "confidence": high|medium|low}'
+    '"unit": str|null, "glucose_context": fasting|post_prandial|random|null '
+    '(blood_glucose only: fasting/FBS → fasting, after meals/PPBS → '
+    'post_prandial, otherwise random)}], "confidence": high|medium|low}'
 )
 
 # v1's colloquial → canonical relationship map, adapted to v2's
@@ -118,6 +121,7 @@ class VitalDraft(BaseModel):
     value_num: float = Field(allow_inf_nan=False)
     value_secondary: float | None = Field(default=None, allow_inf_nan=False)
     unit: str | None = Field(default=None, max_length=20)
+    glucose_context: GlucoseContext | None = None
 
 
 class SmartEntryDraft(BaseModel):
@@ -263,17 +267,24 @@ async def parse_smart_entry(
                 )
             )
     draft_vitals: list[VitalDraft] = []
+    glucose_contexts = {c.value for c in GlucoseContext}
     for v in vitals:
         if isinstance(v, dict) and v.get("vital_type") in {t.value for t in VitalType}:
             value = _num(v.get("value_num"))
             if value is None:
                 continue
+            ctx_raw = v.get("glucose_context")
             draft_vitals.append(
                 VitalDraft(
                     vital_type=VitalType(v["vital_type"]),
                     value_num=value,
                     value_secondary=_num(v.get("value_secondary")),
                     unit=str(v["unit"])[:20] if v.get("unit") else None,
+                    glucose_context=(
+                        GlucoseContext(ctx_raw)
+                        if v["vital_type"] == "blood_glucose" and ctx_raw in glucose_contexts
+                        else None
+                    ),
                 )
             )
 
@@ -361,6 +372,7 @@ async def confirm_smart_entry(
             value_num=v.value_num,
             value_secondary=v.value_secondary,
             unit=v.unit,
+            glucose_context=v.glucose_context.value if v.glucose_context else None,
             measured_at=now,
         )
         db.add(vital)

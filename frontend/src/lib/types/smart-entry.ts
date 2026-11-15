@@ -33,6 +33,8 @@ export interface SmartEntryVitalDraft {
   value_num: number;
   value_secondary?: number | null;
   unit?: string | null;
+  /** blood_glucose only: when the reading was taken. */
+  glucose_context?: "fasting" | "post_prandial" | "random" | null;
 }
 
 export interface SmartEntryDraft {
