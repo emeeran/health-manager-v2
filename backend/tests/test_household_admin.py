@@ -256,7 +256,7 @@ async def test_rename_and_ai_config_roundtrip(auth_client):
     config = {
         "primary_provider": "local",
         "providers": [
-            {"name": "openai", "enabled": False},
+            {"name": "deepseek", "enabled": False},
             {"name": "ollama", "model": "llama3:8b"},
         ],
     }
@@ -265,12 +265,47 @@ async def test_rename_and_ai_config_roundtrip(auth_client):
     got = (await auth_client.get("/api/v1/household/ai-config")).json()
     assert got["primary_provider"] == "local"
     assert got["providers"] == [
-        {"name": "openai", "enabled": False, "model": None, "base_url": None},
+        {"name": "deepseek", "enabled": False, "model": None, "base_url": None},
         {"name": "ollama", "enabled": True, "model": "llama3:8b", "base_url": None},
     ]
 
     audit = (await auth_client.get("/api/v1/security-audit")).json()
     assert "household.ai_config" in [e["action"] for e in audit]
+
+
+@pytest.mark.asyncio
+async def test_ai_config_persists_failover_order(auth_client, session_factory, monkeypatch):
+    """The board's order list round-trips and re-ranks the resolved plan."""
+    from sqlalchemy import select
+
+    from app.models import Household
+    from app.services.ai import router as ai_router
+
+    monkeypatch.setattr(
+        ai_router,
+        "_cloud_specs",
+        lambda: [
+            ("deepseek", "key", "https://api.deepseek.com/v1", "deepseek-chat"),
+            ("groq", "key", "https://api.groq.com/openai/v1", "llama-3.3-70b"),
+        ],
+    )
+
+    put = await auth_client.put(
+        "/api/v1/household/ai-config",
+        json={
+            "primary_provider": "auto",
+            "order": ["groq", "ollama"],
+            "providers": [],
+        },
+    )
+    assert put.status_code == 200, put.text
+    got = (await auth_client.get("/api/v1/household/ai-config")).json()
+    assert got["order"] == ["groq", "ollama"]
+
+    async with session_factory() as session:
+        household_id = (await session.scalars(select(Household.id))).first()
+        plan = await ai_router.plan_for_household(session, household_id)
+        assert [p.name for p in plan][:3] == ["groq", "ollama", "deepseek"]
 
 
 @pytest.mark.asyncio
@@ -298,7 +333,7 @@ async def test_plan_for_household_honors_config(auth_client, session_factory, mo
         ai_router,
         "_cloud_specs",
         lambda: [
-            ("openai", "key", "https://api.openai.com/v1", "gpt-4o-mini"),
+            ("deepseek", "key", "https://api.deepseek.com/v1", "deepseek-chat"),
             ("groq", "key", "https://api.groq.com/openai/v1", "llama-3.3-70b"),
         ],
     )
@@ -307,7 +342,7 @@ async def test_plan_for_household_honors_config(auth_client, session_factory, mo
         "/api/v1/household/ai-config",
         json={
             "primary_provider": "auto",
-            "providers": [{"name": "openai", "enabled": False}],
+            "providers": [{"name": "deepseek", "enabled": False}],
         },
     )
 
@@ -315,7 +350,7 @@ async def test_plan_for_household_honors_config(auth_client, session_factory, mo
         household_id = (await session.scalars(select(Household.id))).first()
 
         plan = await ai_router.plan_for_household(session, household_id)
-        assert [p.name for p in plan] == ["groq", "ollama"]  # openai disabled
+        assert [p.name for p in plan] == ["groq", "ollama"]  # deepseek disabled
 
         local_plan = await ai_router.plan_for_household(session, household_id, local_only=True)
         assert [p.name for p in local_plan] == ["ollama"]

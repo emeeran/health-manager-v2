@@ -48,8 +48,14 @@ def compute_content_hash(record_type, record_date, clinical_data) -> str:
     ``record_date``/``record_type`` participate so a genuine follow-up
     visit that reuses a template does not hash identical to the original;
     ``clinical_data`` is canonicalized (sorted keys, compact separators)
-    so key order never changes the hash.
+    so key order never changes the hash. The AI-written consolidated
+    report is excluded — it rephrases on every run, and two uploads of
+    the same document must still hash identically.
     """
+    if isinstance(clinical_data, dict):
+        clinical_data = {
+            key: value for key, value in clinical_data.items() if key != "consolidated_report"
+        }
     payload = {
         "record_type": str(getattr(record_type, "value", record_type)),
         "record_date": str(record_date),

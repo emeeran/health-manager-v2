@@ -1,5 +1,5 @@
 /** Progress stages streamed while an extraction runs. */
-export type ExtractStage = "reading" | "extracting" | "verifying";
+export type ExtractStage = "reading" | "extracting" | "verifying" | "report";
 
 export interface ExtractStageEvent {
   stage: ExtractStage;

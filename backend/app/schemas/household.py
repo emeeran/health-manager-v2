@@ -66,10 +66,9 @@ class AiConfig(BaseModel):
         "auto",
         "cloud",
         "local",
-        "openai",
         "groq",
         "gemini",
-        "cohere",
+        "zai",
         "deepseek",
         "mistral",
         "openrouter",
@@ -77,6 +76,10 @@ class AiConfig(BaseModel):
         "ollama",
     ] = "auto"
     providers: list[ProviderConfig] = Field(default_factory=list, max_length=8)
+    # Ranked provider names: listed names come first in the given order,
+    # unranked keep their relative env order behind them (see
+    # plan_for_household). The settings board persists the full ordering.
+    order: list[str] = Field(default_factory=list, max_length=9)
 
 
 class ProviderKeySet(BaseModel):

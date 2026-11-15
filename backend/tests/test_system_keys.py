@@ -8,7 +8,7 @@ from app.services import provider_keys
 @pytest.mark.asyncio
 async def test_set_list_mask_delete(auth_client):
     put = await auth_client.put(
-        "/api/v1/system/provider-keys/OPENAI_API_KEY",
+        "/api/v1/system/provider-keys/GROQ_API_KEY",
         json={"value": "sk-super-secret-9876543210"},
     )
     assert put.status_code == 200
@@ -19,15 +19,15 @@ async def test_set_list_mask_delete(auth_client):
     assert body["value"].endswith("3210")
 
     listed = (await auth_client.get("/api/v1/system/provider-keys")).json()["keys"]
-    openai = next(k for k in listed if k["name"] == "OPENAI_API_KEY")
+    openai = next(k for k in listed if k["name"] == "GROQ_API_KEY")
     assert openai["source"] == "db"
     assert "sk-super-secret" not in openai["value"]
 
-    deleted = await auth_client.delete("/api/v1/system/provider-keys/OPENAI_API_KEY")
+    deleted = await auth_client.delete("/api/v1/system/provider-keys/GROQ_API_KEY")
     assert deleted.status_code == 200
     assert deleted.json()["source"] == "none"
 
-    again = await auth_client.delete("/api/v1/system/provider-keys/OPENAI_API_KEY")
+    again = await auth_client.delete("/api/v1/system/provider-keys/GROQ_API_KEY")
     assert again.status_code == 404
 
 
@@ -80,7 +80,7 @@ async def test_admin_only(auth_client):
     async with _extra_client() as anon:
         assert (await anon.get("/api/v1/system/provider-keys")).status_code == 401
         assert (
-            await anon.put("/api/v1/system/provider-keys/OPENAI_API_KEY", json={"value": "x"})
+            await anon.put("/api/v1/system/provider-keys/GROQ_API_KEY", json={"value": "x"})
         ).status_code == 401
 
 

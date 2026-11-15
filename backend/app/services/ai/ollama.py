@@ -35,6 +35,13 @@ class OllamaProvider:
             models = resp.json().get("models", [])
         return sorted(m.get("name", "") for m in models if m.get("name"))
 
+    @staticmethod
+    def _ctx_option() -> dict:
+        """Explicit context window — the server default (4096) silently
+        truncates long extraction chunks."""
+        num_ctx = get_settings().OLLAMA_NUM_CTX
+        return {"num_ctx": num_ctx} if num_ctx else {}
+
     async def stream(self, prompt: str, *, system: str | None = None, max_tokens: int = 4096):
         """Yield text deltas via Ollama's streaming /api/chat."""
         from collections.abc import AsyncIterator
@@ -47,7 +54,7 @@ class OllamaProvider:
             "model": self.model,
             "messages": messages,
             "stream": True,
-            "options": {"num_predict": max_tokens},
+            "options": {"num_predict": max_tokens, **self._ctx_option()},
         }
 
         async def _gen() -> AsyncIterator[str]:
@@ -107,7 +114,7 @@ class OllamaProvider:
             # stream:false requests (observed 2026-11-04 — a 5-token reply
             # never returns), while streaming answers in under a second.
             "stream": True,
-            "options": {"num_predict": max_tokens},
+            "options": {"num_predict": max_tokens, **self._ctx_option()},
         }
         # Deterministic thinking-off for qwen3-style models — otherwise
         # "thinking" tokens consume the num_predict budget and the reply

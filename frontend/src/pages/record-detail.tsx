@@ -33,6 +33,7 @@ import {
 import { CurrentMedicationsPrompt } from "../components/members/current-medications-prompt";
 import { ConfidentialityBadge } from "../components/records/confidentiality";
 import { TrackPrescriptionMeds } from "../components/records/track-prescription-meds";
+import { Markdown } from "../components/shared/markdown";
 import { streamExtract } from "../lib/api/ai";
 import {
   applyExtraction,
@@ -570,6 +571,7 @@ const EXTRACT_STAGES: readonly { stage: ExtractStage; label: string }[] = [
   { stage: "reading", label: "Reading document" },
   { stage: "extracting", label: "Extracting data" },
   { stage: "verifying", label: "Verifying result" },
+  { stage: "report", label: "Writing consolidated report" },
 ];
 
 const VERIFICATION_POLL_MS = 3_000;
@@ -688,7 +690,8 @@ function ExtractWithAi({
           if (
             event.stage === "reading" ||
             event.stage === "extracting" ||
-            event.stage === "verifying"
+            event.stage === "verifying" ||
+            event.stage === "report"
           ) {
             setStageMessages((prev) => ({
               ...prev,
@@ -768,7 +771,8 @@ function ExtractWithAi({
             if (
               event.stage === "reading" ||
               event.stage === "extracting" ||
-              event.stage === "verifying"
+              event.stage === "verifying" ||
+              event.stage === "report"
             ) {
               setStageMessages((prev) => ({
                 ...prev,
@@ -1067,7 +1071,13 @@ function VerificationChip({ verification }: { verification: Verification }) {
 }
 
 /** Clinical data sections that render as labelled lists when present. */
-const CLINICAL_SECTIONS = ["medications", "labs", "vitals"] as const;
+const CLINICAL_SECTIONS = [
+  "medications",
+  "imaging",
+  "screenings",
+  "labs",
+  "vitals",
+] as const;
 
 function ClinicalDataView({ data }: { data: Record<string, unknown> }) {
   if (Object.keys(data).length === 0) {
@@ -1083,12 +1093,28 @@ function ClinicalDataView({ data }: { data: Record<string, unknown> }) {
   );
   const others = Object.entries(data).filter(
     ([key, value]) =>
-      !(CLINICAL_SECTIONS as readonly string[]).includes(key) ||
-      !Array.isArray(value),
+      key !== "consolidated_report" &&
+      (!(CLINICAL_SECTIONS as readonly string[]).includes(key) ||
+        !Array.isArray(value)),
   );
+  const report =
+    typeof data.consolidated_report === "string"
+      ? data.consolidated_report
+      : null;
 
   return (
     <div className="space-y-3">
+      {report && (
+        <div className="rounded-xl border border-border bg-background p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Consolidated clinical report
+          </p>
+          <div className="mt-2">
+            <Markdown>{report}</Markdown>
+          </div>
+        </div>
+      )}
+
       {others.length > 0 && (
         <dl className="divide-y divide-border">
           {others.map(([key, value]) => (
@@ -1098,9 +1124,9 @@ function ClinicalDataView({ data }: { data: Record<string, unknown> }) {
               </dt>
               <dd className="min-w-0 flex-1 text-sm">
                 {typeof value === "object" && value !== null ? (
-                  <pre className="overflow-x-auto rounded-lg bg-muted p-2 text-xs">
-                    {JSON.stringify(value, null, 2)}
-                  </pre>
+                  Object.entries(value)
+                    .map(([k, v]) => `${titleize(k)}: ${formatValue(v)}`)
+                    .join(" · ")
                 ) : (
                   formatValue(value)
                 )}

@@ -22,11 +22,10 @@ os.environ.setdefault("ALLOW_REGISTRATION", "true")
 # closed port and FORCE cloud keys empty (env vars beat the developer's
 # backend/.env, which may hold real keys).
 os.environ["OLLAMA_BASE_URL"] = "http://127.0.0.1:1"
-os.environ["OPENAI_API_KEY"] = ""
 os.environ["GROQ_API_KEY"] = ""
 # Same for the additional OpenAI-compatible slots (developer .env may hold
 # real keys; tests must never see a cloud provider unless they patch one in).
-for _provider in ("GEMINI", "COHERE", "DEEPSEEK", "MISTRAL", "OPENROUTER", "HUGGINGFACE"):
+for _provider in ("GEMINI", "ZAI", "DEEPSEEK", "MISTRAL", "OPENROUTER", "HUGGINGFACE"):
     os.environ[f"{_provider}_API_KEY"] = ""
 # Web push off in tests even when the developer's .env has VAPID keys.
 os.environ["WEB_PUSH_ENABLED"] = "false"

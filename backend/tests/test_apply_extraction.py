@@ -81,6 +81,48 @@ async def test_apply_extraction_persists_labs_and_vitals(auth_client):
     assert labs[0]["flag"] == "high"
 
 
+async def test_apply_extraction_comparative_lab_dates(auth_client):
+    """Per-lab dates win over the record's date (comparative lab tables)."""
+    member_id = await _member(auth_client)
+    record = await _record(auth_client, member_id)
+
+    resp = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/{record['id']}/apply-extraction",
+        json={
+            "clinical_data": {
+                "labs": [
+                    {"name": "Hemoglobin", "result": "9.2", "date": "2025-04-10"},
+                    {"name": "Hemoglobin", "result": "7.8", "date": "2025-11-15"},
+                    {"name": "TSH", "result": "1.23"},  # no date → record date
+                ],
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["labs_created"] == 3
+
+    labs = (await auth_client.get(f"/api/v1/members/{member_id}/labs")).json()
+    by_date = {lab["record_date"]: lab["result"] for lab in labs}
+    assert by_date.get("2025-04-10") == "9.2"
+    assert by_date.get("2025-11-15") == "7.8"
+    assert by_date.get("2026-11-01") == "1.23"  # the record's own date
+
+    # Idempotent re-apply: no duplicates even across the differing dates.
+    again = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/{record['id']}/apply-extraction",
+        json={
+            "clinical_data": {
+                "labs": [
+                    {"name": "Hemoglobin", "result": "9.2", "date": "2025-04-10"},
+                    {"name": "Hemoglobin", "result": "7.8", "date": "2025-11-15"},
+                ],
+            },
+        },
+    )
+    assert again.status_code == 200, again.text
+    assert again.json()["labs_created"] == 0
+
+
 async def test_apply_extraction_requires_matching_record(auth_client):
     member_id = await _member(auth_client)
     other = await _record(auth_client, member_id)

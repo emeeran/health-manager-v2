@@ -8,8 +8,12 @@ prose around the JSON no matter what the prompt says.
 
 import asyncio
 import io
+import json
+import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import fitz
@@ -19,6 +23,8 @@ from PIL import Image
 from app.core.config import get_settings
 from app.services.ai.base import ExtractionResult
 from app.services.ai.prompts import load_prompt
+
+logger = logging.getLogger(__name__)
 
 VISION_MAX_DIM = 1568
 MIN_EMBEDDED_TEXT_CHARS = 100
@@ -94,16 +100,54 @@ def merge_chunk_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         "facility": None,
         "diagnosis": None,
         "summary": None,
+        "patient": None,
+        "clinical_history": None,
+        "exam_findings": None,
         "medications": [],
+        "imaging": [],
+        "screenings": [],
         "labs": [],
         "vitals": [],
     }
     for result in results:
-        for key in ("medications", "labs", "vitals"):
+        for key in (
+            "medications",
+            "imaging",
+            "screenings",
+            "labs",
+            "vitals",
+        ):
             merged[key].extend(result.get(key) or [])
-        for key in ("record_date", "doctor_name", "facility", "diagnosis", "summary"):
+        for key in (
+            "record_date",
+            "doctor_name",
+            "facility",
+            "diagnosis",
+            "summary",
+            "patient",
+            "clinical_history",
+            "exam_findings",
+        ):
             if result.get(key) and not merged[key]:
                 merged[key] = result[key]
+    # A closing summary section often restates items an earlier chunk already
+    # extracted verbatim — drop exact repeats, keep distinct dates/values.
+    for key, identity in (
+        ("medications", lambda m: (str(m.get("name", "")).lower(), str(m.get("dosage")))),
+        ("imaging", lambda i: (str(i.get("modality")), str(i.get("region")), str(i.get("date")))),
+        ("screenings", lambda s: (str(s.get("type", "")).lower(), str(s.get("date")))),
+        ("labs", lambda row: (str(row.get("name", "")).lower(), str(row.get("result")), str(row.get("date")))),
+        ("vitals", lambda v: (str(v.get("type")), str(v.get("value")), str(v.get("value_secondary")))),
+    ):
+        seen: set = set()
+        deduped = []
+        for item in merged[key]:
+            marker = identity(item)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            deduped.append(item)
+        merged[key] = deduped
     return merged
 
 
@@ -114,8 +158,6 @@ def parse_llm_json(raw: str) -> dict[str, Any]:
     <think>…</think> or prose — strip to the outermost {...} before
     repair so a chatty preamble can't reduce the result to {}.
     """
-    import re
-
     cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
     start = cleaned.find("{")
     end = cleaned.rfind("}")
@@ -127,15 +169,19 @@ def parse_llm_json(raw: str) -> dict[str, Any]:
 
 async def _complete_chunk(provider, chunk: PageChunk, progress: Callable) -> dict:
     template = load_prompt("extraction.md")
+    # EXTRACTION_MAX_TOKENS, not a hardcoded value: reasoning models burn
+    # completion budget on thinking before the JSON, so a tight cap truncates
+    # the payload mid-list and json_repair salvages only a fragment.
+    max_tokens = get_settings().EXTRACTION_MAX_TOKENS
     if chunk.text is not None:
         content = template.replace("{content}", chunk.text)
-        raw = await provider.complete(content, max_tokens=4000)
+        raw = await provider.complete(content, max_tokens=max_tokens)
     else:
         content = template.replace(
             "{content}",
             "(The document pages are attached as images. Read them carefully.)",
         )
-        raw = await provider.complete(content, images=chunk.images, max_tokens=4000)
+        raw = await provider.complete(content, images=chunk.images, max_tokens=max_tokens)
     progress("extracting", f"extracted pages {chunk.pages[0] + 1}-{chunk.pages[-1] + 1}")
     return parse_llm_json(raw)
 
@@ -164,3 +210,103 @@ async def run_extraction(
         summary=str(summary) if summary else None,
         provider_used=provider.name,
     )
+
+
+async def run_extraction_with_failover(
+    data: bytes,
+    mime: str,
+    plan: list,
+    progress: Callable[[str, str], Any] | None = None,
+) -> ExtractionResult:
+    """Run the pipeline against the plan in order, failing over on errors.
+
+    A provider that raises (400 for an unsupported request shape, 429 rate
+    limit, timeout, dead key) is negative-cached via ``mark_unhealthy`` — so
+    the next plan resolution skips it for the health TTL — and the next
+    provider in the plan is tried. Re-raises the last error when every
+    provider fails. ``result.provider_used`` reports who actually won.
+    """
+    from app.services.ai import router as ai_router
+
+    progress = progress or (lambda stage, message: None)
+    if not plan:
+        raise RuntimeError("No AI provider available")
+    last_exc: Exception | None = None
+    for provider in plan:
+        try:
+            return await run_extraction(data, mime, provider, progress)
+        except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
+            last_exc = exc
+            ai_router.mark_unhealthy(provider.name)
+            logger.warning(
+                "extraction failed via %s: %s — trying next provider", provider.name, exc
+            )
+            progress("failover", f"{provider.name} failed — trying next provider")
+    assert last_exc is not None  # non-empty plan guarantees an error was recorded
+    raise last_exc
+
+
+def strip_report_markdown(raw: str) -> str:
+    """Clean an LLM report reply down to the bare markdown document."""
+    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+    # A fence-wrapped document (```markdown … ```) is common despite the
+    # prompt; unwrap the outermost fence instead of rendering the ticks.
+    fence = re.match(
+        r"^\s*```[^\n]*\n(.*)\n```\s*$", cleaned, flags=re.DOTALL
+    )
+    if fence:
+        cleaned = fence.group(1)
+    return cleaned.strip()
+
+
+async def run_consolidated_report(
+    clinical_data: dict[str, Any],
+    plan: list,
+    progress: Callable[[str, str], Any] | None = None,
+) -> str:
+    """Second pass: restructure extracted clinical_data into the
+    consolidated-report markdown (prompts/consolidated-report.md).
+
+    Runs after a successful extraction and speaks to the same provider
+    plan with the same failover semantics. Raises when every provider
+    fails — callers treat the report as optional and keep the extraction.
+    """
+    from app.services.ai import router as ai_router
+
+    progress = progress or (lambda stage, message: None)
+    if not plan:
+        raise RuntimeError("No AI provider available")
+    template = load_prompt("consolidated-report.md")
+    content = json.dumps(
+        {"report_date": date.today().isoformat(), "clinical_data": clinical_data},
+        ensure_ascii=False,
+        default=str,
+    )
+    prompt = template.replace("{report_date}", date.today().isoformat()).replace(
+        "{content}", content
+    )
+    # Providers the extraction already burned (dead keys, 429s) are
+    # negative-cached — don't feed the report pass the same losers.
+    candidates = await ai_router.available_providers(plan)
+    if not candidates:
+        raise RuntimeError("No AI provider available")
+    last_exc: Exception | None = None
+    for provider in candidates:
+        try:
+            raw = await provider.complete(
+                prompt, max_tokens=get_settings().EXTRACTION_MAX_TOKENS
+            )
+            report = strip_report_markdown(raw)
+            if report:
+                return report
+            raise RuntimeError("model returned an empty report")
+        except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
+            last_exc = exc
+            ai_router.mark_unhealthy(provider.name)
+            logger.warning(
+                "consolidated report failed via %s: %s — trying next provider",
+                provider.name,
+                exc,
+            )
+    assert last_exc is not None
+    raise last_exc

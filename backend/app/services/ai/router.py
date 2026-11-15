@@ -25,15 +25,11 @@ health_cache = _health
 def _cloud_specs() -> list[tuple[str, str, str, str]]:
     settings = get_settings()
     specs = []
-    if settings.OPENAI_API_KEY:
-        specs.append(
-            ("openai", settings.OPENAI_API_KEY, settings.OPENAI_BASE_URL, settings.OPENAI_MODEL)
-        )
     if settings.GROQ_API_KEY:
         specs.append(("groq", settings.GROQ_API_KEY, settings.GROQ_BASE_URL, settings.GROQ_MODEL))
     for name in (
         "GEMINI",
-        "COHERE",
+        "ZAI",
         "DEEPSEEK",
         "MISTRAL",
         "OPENROUTER",

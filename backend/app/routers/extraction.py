@@ -1,6 +1,7 @@
 """AI document extraction endpoints (blocking + SSE)."""
 
 import asyncio
+import logging
 import uuid
 
 import fitz
@@ -21,6 +22,7 @@ from app.services import health_alert_service
 from app.core.storage import ALLOWED_MIME, _magic_ok, validate_size
 
 router = APIRouter(prefix="/members/{member_id}/records", tags=["extraction"])
+logger = logging.getLogger(__name__)
 
 # Strong refs for fire-and-forget tasks: the loop keeps only weak refs, so
 # an untracked task can be garbage-collected mid-run (CPython pitfall).
@@ -105,10 +107,10 @@ async def extract_document(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     data, mime = await _read_upload(file)
-    _, plan, provider = await _resolve_provider(member_id, user, db)
+    _, plan, _ = await _resolve_provider(member_id, user, db)
     await _record_for_provenance(member_id, record_id, db)
     try:
-        result = await extraction_svc.run_extraction(data, mime, provider)
+        result = await extraction_svc.run_extraction_with_failover(data, mime, plan)
     except (UnidentifiedImageError, fitz.FileDataError) as exc:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "Could not decode the file as its claimed type"
@@ -117,7 +119,7 @@ async def extract_document(
 
     verification_id = None
     if get_settings().AI_VERIFICATION_ENABLED:
-        verifier = pick_verifiers(plan, provider.name)
+        verifier = pick_verifiers(plan, result.provider_used)
         if verifier:
             verification_id = await schedule_verification(
                 db,
@@ -128,6 +130,16 @@ async def extract_document(
                 verifier,
                 subject_id=record_id,
             )
+
+    # Optional second pass: restructure the extraction into the
+    # consolidated-report markdown. Failure keeps the extraction result.
+    if get_settings().AI_CONSOLIDATED_REPORT_ENABLED:
+        try:
+            result.clinical_data["consolidated_report"] = (
+                await extraction_svc.run_consolidated_report(result.clinical_data, plan)
+            )
+        except Exception as exc:  # noqa: BLE001 — the report is a bonus, not the payload
+            logger.warning("consolidated report generation failed: %s", exc)
 
     return {
         "clinical_data": result.clinical_data,
@@ -147,7 +159,7 @@ async def extract_document_stream(
     db: AsyncSession = Depends(get_db),
 ):
     data, mime = await _read_upload(file)
-    _, plan, provider = await _resolve_provider(member_id, user, db)
+    _, plan, _ = await _resolve_provider(member_id, user, db)
     await _record_for_provenance(member_id, record_id, db)
 
     async def source():
@@ -160,8 +172,8 @@ async def extract_document_stream(
             # under this task if it borrowed the request's.
             try:
                 async with SessionLocal() as task_db:
-                    result = await extraction_svc.run_extraction(
-                        data, mime, provider, _queue_progress(queue)
+                    result = await extraction_svc.run_extraction_with_failover(
+                        data, mime, plan, _queue_progress(queue)
                     )
                     alerts_created = await _raise_lab_alerts(task_db, member_id, result)
                     if alerts_created:
@@ -173,7 +185,7 @@ async def extract_document_stream(
                         )
                     verification_id = None
                     if get_settings().AI_VERIFICATION_ENABLED:
-                        verifier = pick_verifiers(plan, provider.name)
+                        verifier = pick_verifiers(plan, result.provider_used)
                         if verifier:
                             queue.put_nowait(
                                 {"stage": "verifying", "message": "second model reviewing"}
@@ -186,6 +198,20 @@ async def extract_document_stream(
                                 result.clinical_data,
                                 verifier,
                                 subject_id=record_id,
+                            )
+                    if get_settings().AI_CONSOLIDATED_REPORT_ENABLED:
+                        queue.put_nowait(
+                            {"stage": "report", "message": "writing consolidated report"}
+                        )
+                        try:
+                            result.clinical_data["consolidated_report"] = (
+                                await extraction_svc.run_consolidated_report(
+                                    result.clinical_data, plan
+                                )
+                            )
+                        except Exception as exc:  # noqa: BLE001 — report is optional
+                            logger.warning(
+                                "consolidated report generation failed: %s", exc
                             )
                     await task_db.commit()
                     queue.put_nowait(

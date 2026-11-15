@@ -45,10 +45,9 @@ export type PrimaryProvider =
   | "auto"
   | "cloud"
   | "local"
-  | "openai"
   | "groq"
   | "gemini"
-  | "cohere"
+  | "zai"
   | "deepseek"
   | "mistral"
   | "openrouter"
@@ -71,6 +70,8 @@ export interface AiProviderTestResult {
 export interface AiConfig {
   primary_provider: PrimaryProvider;
   providers: AiProviderConfig[];
+  /** Ranked provider names for the failover order; empty = env order. */
+  order: string[];
 }
 
 export interface ProviderKeyStatus {

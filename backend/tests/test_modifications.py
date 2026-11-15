@@ -189,14 +189,14 @@ def _reset_settings_cache():
 
 
 async def test_new_cloud_providers_join_the_plan(monkeypatch):
-    """Gemini/Cohere/DeepSeek/Mistral/OpenRouter/HuggingFace activate from env keys."""
+    """Gemini/Z.ai/DeepSeek/Mistral/OpenRouter/HuggingFace activate from env keys."""
     from app.services.ai import router as ai_router
 
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-env")
     monkeypatch.setenv("GEMINI_API_KEY", "g-key")
     # The developer's backend/.env may hold real keys — pin the rest empty
     # so the absence assertion is deterministic.
-    for name in ("COHERE", "MISTRAL", "OPENROUTER", "HUGGINGFACE"):
+    for name in ("ZAI", "MISTRAL", "OPENROUTER", "HUGGINGFACE"):
         monkeypatch.setenv(f"{name}_API_KEY", "")
     _reset_settings_cache()
     try:

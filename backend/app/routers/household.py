@@ -13,7 +13,7 @@ from app.services.audit import record_audit
 
 router = APIRouter(prefix="/household", tags=["household"])
 
-DEFAULT_AI_CONFIG = {"primary_provider": "auto", "providers": []}
+DEFAULT_AI_CONFIG = {"primary_provider": "auto", "providers": [], "order": []}
 
 
 def _parse_config(household: Household) -> dict:

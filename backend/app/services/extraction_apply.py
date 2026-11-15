@@ -10,7 +10,7 @@ their currently-taking list instead.
 import json
 import re
 import uuid
-from datetime import datetime, time, UTC
+from datetime import date, datetime, time, UTC
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,13 @@ def _parse_labs(entries: list, member_id, record_id, record_date) -> list[LabRes
         match = _REF_RANGE_RE.search(str(entry.get("reference") or ""))
         if match:
             ref_low, ref_high = float(match.group(1)), float(match.group(2))
+        # Comparative documents carry one entry per collection date; a
+        # parseable per-entry date wins, the record's date is the fallback.
+        entry_date = record_date
+        try:
+            entry_date = date.fromisoformat(str(entry.get("date")))
+        except (TypeError, ValueError):
+            pass
         rows.append(
             LabResult(
                 member_id=member_id,
@@ -52,7 +59,7 @@ def _parse_labs(entries: list, member_id, record_id, record_date) -> list[LabRes
                 ref_low_num=ref_low,
                 ref_high_num=ref_high,
                 flag=entry.get("flag"),
-                record_date=record_date,
+                record_date=entry_date,
             )
         )
     return rows
@@ -98,14 +105,16 @@ async def persist_clinical_data(
         data = clinical_data or {}
     fallback = datetime.now(UTC).replace(tzinfo=None)
     measured_at = datetime.combine(record_date, time.min) if record_date else fallback
-    existing_labs = set(
-        await db.scalars(
-            select(LabResult.test_name).where(
-                LabResult.record_id == record_id,
-                LabResult.record_date == record_date,
+    existing_labs = {
+        (row[0], row[1])
+        for row in (
+            await db.execute(
+                select(LabResult.test_name, LabResult.record_date).where(
+                    LabResult.record_id == record_id
+                )
             )
-        )
-    )
+        ).all()
+    }
     existing_vitals = set(
         await db.scalars(
             select(VitalMeasurement.vital_type).where(
@@ -117,7 +126,7 @@ async def persist_clinical_data(
     labs = [
         row
         for row in _parse_labs(data.get("labs") or [], member_id, record_id, record_date)
-        if row.test_name not in existing_labs
+        if (row.test_name, row.record_date) not in existing_labs
     ]
     vitals = [
         row

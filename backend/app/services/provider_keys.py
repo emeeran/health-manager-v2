@@ -21,20 +21,17 @@ logger = logging.getLogger(__name__)
 
 # Failover/display order for the settings board; ALLOWED_KEYS is derived.
 ALLOWED_KEYS_ORDER = (
-    "OPENAI_API_KEY",
     "GROQ_API_KEY",
-    "OPENAI_BASE_URL",
     "GROQ_BASE_URL",
     "OLLAMA_BASE_URL",
-    "OPENAI_MODEL",
     "GROQ_MODEL",
     "OLLAMA_MODEL",
     "GEMINI_API_KEY",
     "GEMINI_BASE_URL",
     "GEMINI_MODEL",
-    "COHERE_API_KEY",
-    "COHERE_BASE_URL",
-    "COHERE_MODEL",
+    "ZAI_API_KEY",
+    "ZAI_BASE_URL",
+    "ZAI_MODEL",
     "DEEPSEEK_API_KEY",
     "DEEPSEEK_BASE_URL",
     "DEEPSEEK_MODEL",

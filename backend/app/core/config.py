@@ -34,10 +34,12 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen3:4b"
     OLLAMA_TIMEOUT: int = 300
+    # Per-request context window. The server default (4096) silently
+    # truncates multi-page extraction chunks; 8192 holds a full chunk.
+    # Keep KV-cache RAM in check with OLLAMA_FLASH_ATTENTION=1 and
+    # OLLAMA_KV_CACHE_TYPE=q8_0 on the server (see docs).
+    OLLAMA_NUM_CTX: int = 8192
     # OpenAI-compatible cloud slots (key empty = provider disabled).
-    OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_MODEL: str = "gpt-4o-mini"
     GROQ_API_KEY: str = ""
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "openai/gpt-oss-120b"
@@ -47,9 +49,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     GEMINI_MODEL: str = "gemini-2.5-flash"
-    COHERE_API_KEY: str = ""
-    COHERE_BASE_URL: str = "https://api.cohere.ai/compatibility/v1"
-    COHERE_MODEL: str = "command-r7b-12-2024"
+    ZAI_API_KEY: str = ""
+    ZAI_BASE_URL: str = "https://api.z.ai/api/paas/v4"
+    ZAI_MODEL: str = "glm-4.6"
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-chat"
@@ -61,14 +63,22 @@ class Settings(BaseSettings):
     OPENROUTER_MODEL: str = "openrouter/auto"
     HUGGINGFACE_API_KEY: str = ""
     HUGGINGFACE_BASE_URL: str = "https://router.huggingface.co/v1"
-    HUGGINGFACE_MODEL: str = "Qwen/Qwen2.5-7B-Instruct"
+    HUGGINGFACE_MODEL: str = "google/medgemma-27b-text-it"
     # Cloud attempts abandoned after this many seconds (dead key → next
     # provider); Ollama gets the larger OLLAMA_TIMEOUT.
     EXTRACTION_PROVIDER_TIMEOUT: int = 15
-    EXTRACTION_PAGES_PER_CHUNK: int = 5
+    # Pages per extraction chunk. For vision chunks this is ALSO the number of
+    # images in one request — providers cap that per model (verified live:
+    # Groq's qwen/qwen3.8-27b rejects a 5-image request with 400 "Too many
+    # images provided. This model supports up to 3 images"), so 3 is the
+    # highest safe default across current cloud vision models.
+    EXTRACTION_PAGES_PER_CHUNK: int = 3
     EXTRACTION_MAX_TOKENS: int = 4096
     # Second-model verification of extractions + the claim audit agent.
     AI_VERIFICATION_ENABLED: bool = True
+    # Second LLM pass that restructures each extraction into a consolidated
+    # clinical report (markdown, stored in clinical_data.consolidated_report).
+    AI_CONSOLIDATED_REPORT_ENABLED: bool = True
     # Audit agent: max claims examined per narrative.
     AUDIT_MAX_CLAIMS: int = 15
 

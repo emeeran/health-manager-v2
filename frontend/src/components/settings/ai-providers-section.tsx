@@ -2,6 +2,7 @@ import {
   Bot,
   Check,
   ChevronDown,
+  ChevronUp,
   Globe2,
   Loader2,
   RefreshCw,
@@ -31,10 +32,9 @@ import type {
 
 /** Known provider names — the board shows one row per provider. */
 const PROVIDER_NAMES = [
-  "openai",
   "groq",
   "gemini",
-  "cohere",
+  "zai",
   "deepseek",
   "mistral",
   "openrouter",
@@ -102,7 +102,7 @@ export function AiProvidersSection() {
     return keys.find((k) => k.name === name);
   }
 
-  const rows: ProviderRow[] = [
+  const allRows: ProviderRow[] = [
     ...PROVIDER_NAMES.map((name) => {
       const upper = name.toUpperCase();
       return {
@@ -118,6 +118,16 @@ export function AiProvidersSection() {
       .filter((p) => !(PROVIDER_NAMES as readonly string[]).includes(p.name))
       .map((p) => ({ name: p.name, failover: p })),
   ];
+
+  /** Effective failover ranking: cfg.order ranked names first, the rest in
+   * their default order behind them — mirrored from the backend's resolver. */
+  const ranked: ProviderRow[] = [
+    ...(cfg.order ?? [])
+      .map((name) => allRows.find((row) => row.name === name))
+      .filter((row): row is ProviderRow => row !== undefined),
+    ...allRows.filter((row) => !(cfg.order ?? []).includes(row.name)),
+  ];
+  const rows = ranked;
 
   // De-clutter: rows with no credentials, no override and no failover entry
   // stay collapsed until asked for.
@@ -162,6 +172,27 @@ export function AiProvidersSection() {
       ...cfg,
       providers: cfg.providers.filter((p) => p.name !== name),
     });
+  }
+
+  /** Persist the shown ranking as the failover order. */
+  function setOrder(next: ProviderRow[]) {
+    return saveConfig({
+      ...cfg,
+      order: next.map((row) => row.name),
+    });
+  }
+
+  function moveRow(name: string, dir: -1 | 1) {
+    const at = ranked.findIndex((row) => row.name === name);
+    const to = at + dir;
+    if (at === -1 || to < 0 || to >= ranked.length) return;
+    const next = [...ranked];
+    next.splice(to, 0, next.splice(at, 1)[0]);
+    void setOrder(next);
+  }
+
+  function setEnabled(name: string, enabled: boolean) {
+    void patchOverride(name, { enabled });
   }
 
   async function test(name: string) {
@@ -358,11 +389,42 @@ export function AiProvidersSection() {
                 >
                   Test
                 </button>
+                <span className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    onClick={() => moveRow(row.name, -1)}
+                    disabled={busy || row.name === ranked[0]?.name}
+                    aria-label={`Move ${row.name} up in failover order`}
+                    className="rounded-t-md border border-border px-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                  >
+                    <ChevronUp className="size-3" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveRow(row.name, 1)}
+                    disabled={busy || row.name === ranked[ranked.length - 1]?.name}
+                    aria-label={`Move ${row.name} down in failover order`}
+                    className="rounded-b-md border border-border px-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                  >
+                    <ChevronDown className="size-3" aria-hidden />
+                  </button>
+                </span>
+                <label
+                  className="flex shrink-0 items-center gap-1 text-muted-foreground"
+                  title="Included in the failover plan"
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.override?.enabled ?? true}
+                    disabled={busy}
+                    onChange={(e) => setEnabled(row.name, e.target.checked)}
+                    aria-label={`Enable ${row.name}`}
+                  />
+                </label>
               </div>
               {isExpanded && (
                 <ProviderDetails
                   row={row}
-                  busy={busy}
                   models={modelLists[row.name] ?? []}
                   onPatchOverride={(patch) =>
                     void patchOverride(row.name, patch)
@@ -438,13 +500,11 @@ function KeyDot({ row }: { row: ProviderRow }) {
 /** Inline details for one provider: key, base URL, model override. */
 function ProviderDetails({
   row,
-  busy,
   models,
   onPatchOverride,
   onRemoveOverride,
 }: {
   row: ProviderRow;
-  busy: boolean;
   /** Fetched live catalogue, or the static fallback suggestions. */
   models: string[];
   onPatchOverride: (patch: Partial<AiProviderConfig>) => void;
@@ -597,15 +657,6 @@ function ProviderDetails({
         </datalist>
         {row.override ? (
           <>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={row.override.enabled}
-                onChange={(e) => onPatchOverride({ enabled: e.target.checked })}
-                disabled={busy}
-              />
-              enabled
-            </label>
             <button
               type="button"
               onClick={onRemoveOverride}

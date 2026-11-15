@@ -75,7 +75,7 @@ async def extract_batch_stream(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             f"Batch limited to {MAX_BATCH_FILES} files",
         )
-    _, plan, provider = await _resolve_provider(member_id, user, db)
+    _, plan, _ = await _resolve_provider(member_id, user, db)
 
     payloads: list[UploadFile] = files
     total = len(payloads)
@@ -103,14 +103,35 @@ async def extract_batch_stream(
                         # oversized file becomes a per-file error event instead
                         # of failing the whole batch request.
                         data, mime = await _read_upload(file)
-                        result = await extraction_svc.run_extraction(
-                            data, mime, provider, _progress_callback(queue, filename)
+                        result = await extraction_svc.run_extraction_with_failover(
+                            data, mime, plan, _progress_callback(queue, filename)
                         )
                         clinical = result.clinical_data or {}
                         record_date = _record_date_from(clinical)
                         content_hash = compute_content_hash(
                             RecordType.OTHER.value, record_date, clinical
                         )
+                        # Same optional second pass as the single-file flow;
+                        # compute_content_hash already ran WITHOUT the report,
+                        # so a rephrased report never breaks dedup.
+                        if get_settings().AI_CONSOLIDATED_REPORT_ENABLED:
+                            queue.put_nowait(
+                                {
+                                    "stage": "report",
+                                    "message": "writing consolidated report",
+                                    "filename": filename,
+                                }
+                            )
+                            try:
+                                clinical["consolidated_report"] = (
+                                    await extraction_svc.run_consolidated_report(
+                                        clinical, plan
+                                    )
+                                )
+                            except Exception as exc:  # noqa: BLE001 — report is optional
+                                logger.warning(
+                                    "consolidated report failed for %s: %s", filename, exc
+                                )
                         # Extracted meds make this a prescription; link it to a
                         # nearby doctor visit the same way manual filing does.
                         record_type = (
@@ -135,7 +156,7 @@ async def extract_batch_stream(
 
                         verification_id = None
                         if get_settings().AI_VERIFICATION_ENABLED:
-                            verifier = pick_verifiers(plan, provider.name)
+                            verifier = pick_verifiers(plan, result.provider_used)
                             if verifier:
                                 queue.put_nowait(
                                     {

@@ -63,13 +63,13 @@ function stubEndpoints() {
               value: "http://localhost:11434",
             },
             {
-              name: "OPENAI_API_KEY",
+              name: "MISTRAL_API_KEY",
               set: false,
               source: "none",
               value: "",
             },
             {
-              name: "OPENAI_BASE_URL",
+              name: "MISTRAL_BASE_URL",
               set: false,
               source: "none",
               value: "",
@@ -106,13 +106,13 @@ describe("AiProvidersSection (compact board)", () => {
     renderSection();
 
     // deepseek (key saved + override) and ollama (base URL from env) show;
-    // openai has nothing configured and stays behind the expander.
+    // mistral has nothing configured and stays behind the expander.
     const deepseek = await screen.findByTestId("provider-row-deepseek");
     expect(deepseek.textContent).toContain("deepseek-chat");
     expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
-    expect(screen.queryByTestId("provider-row-openai")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("provider-row-mistral")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /show 7 more providers/i }),
+      screen.getByRole("button", { name: /show 6 more providers/i }),
     ).toBeInTheDocument();
   });
 

@@ -186,9 +186,7 @@ async def test_openai_compat_available_needs_key():
 
 
 async def test_plan_prefers_cloud_and_appends_local(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    # Pin blank (don't delenv): the developer's .env may carry a real key.
-    monkeypatch.setenv("GROQ_API_KEY", "")
+    monkeypatch.setenv("GROQ_API_KEY", "sk-test")
     from app.core.config import get_settings
 
     get_settings.cache_clear()
@@ -196,7 +194,7 @@ async def test_plan_prefers_cloud_and_appends_local(monkeypatch):
         from app.services.ai import router as ai_router
 
         plan = ai_router.build_plan()
-        assert [p.name for p in plan] == ["openai", "ollama"]
+        assert [p.name for p in plan] == ["groq", "ollama"]
         local_plan = ai_router.build_plan(local_only=True)
         assert [p.name for p in local_plan] == ["ollama"]
     finally:

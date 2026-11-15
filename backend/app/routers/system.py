@@ -55,7 +55,7 @@ async def list_ai_providers(
 @router.post("/ai-providers/{name}/test")
 async def test_ai_provider(
     name: str,
-    _: tuple = Depends(require_household_admin),
+    result: tuple = Depends(require_household_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Ping a provider with a minimal completion; feeds the health cache so
@@ -63,7 +63,11 @@ async def test_ai_provider(
     ok=false on failure — the UI renders the error, not an HTTP failure."""
     from app.services.ai import router as ai_router
 
-    plan = await _resolved_plan(db)
+    household, _ = result
+    # Household-resolved plan, so the button tests the model/base-URL the
+    # household actually extracts with (its medgemma override, not the env
+    # default Ollama slot).
+    plan = await ai_router.plan_for_household(db, household.id)
     provider = next((p for p in plan if p.name == name), None)
     if provider is None:
         raise HTTPException(404, f"Provider not configured: {name}")
@@ -72,9 +76,12 @@ async def test_ai_provider(
     try:
         # 512 so reasoning models (which spend budget before content) still
         # produce a non-empty answer; a 5-token budget reads as a failure.
+        # Local providers may need to cold-load weights first, so their
+        # configured timeout applies up to a sane 60s ceiling.
+        provider_timeout = max(25, min(getattr(provider, "timeout", 25), 60))
         reply = await asyncio.wait_for(
             provider.complete("Reply with the single word OK.", max_tokens=512),
-            timeout=25,
+            timeout=provider_timeout,
         )
         latency = int((time.monotonic() - started) * 1000)
         ok = bool(reply and reply.strip())

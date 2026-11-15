@@ -259,3 +259,16 @@ async def test_confidentiality_private_admin_only(auth_client):
     assert now_hidden.status_code == 200  # admin still sees it
     member_after = await member_client.get(f"/api/v1/members/{member_id}/records/{household['id']}")
     assert member_after.status_code == 404  # member lost access
+
+
+def test_content_hash_ignores_consolidated_report():
+    """The AI-written report rephrases every run — it must never change the
+    dedup fingerprint of the document it came from."""
+    from app.services.dedup_service import compute_content_hash
+
+    base = {"diagnosis": "x", "labs": [{"name": "Hb", "result": "7.8"}]}
+    with_report = {**base, "consolidated_report": "# a different phrasing each run"}
+    assert (
+        compute_content_hash("other", "2026-01-01", base)
+        == compute_content_hash("other", "2026-01-01", with_report)
+    )
