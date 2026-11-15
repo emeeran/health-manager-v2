@@ -265,7 +265,7 @@ async def run_consolidated_report(
     progress: Callable[[str, str], Any] | None = None,
 ) -> str:
     """Second pass: restructure extracted clinical_data into the
-    consolidated-report markdown (prompts/consolidated-report.md).
+    consolidated-report markdown (prompts/template-1.md).
 
     Runs after a successful extraction and speaks to the same provider
     plan with the same failover semantics. Raises when every provider
@@ -276,7 +276,7 @@ async def run_consolidated_report(
     progress = progress or (lambda stage, message: None)
     if not plan:
         raise RuntimeError("No AI provider available")
-    template = load_prompt("consolidated-report.md")
+    template = load_prompt("template-1.md")
     content = json.dumps(
         {"report_date": date.today().isoformat(), "clinical_data": clinical_data},
         ensure_ascii=False,
