@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { updateMember } from "../../lib/api/members";
 import { useEscClose } from "../../hooks/use-esc-close";
 import { RELATIONSHIPS, SEXES, type Member } from "../../lib/types/member";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 /**
  * Edit dialog for a member profile: prefilled from the current member,
@@ -69,7 +69,7 @@ export function MemberEditDialog({
       });
       onSaved(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save changes.");
+      setError(errorMessage(err, "Could not save changes."));
       setSubmitting(false);
     }
   }

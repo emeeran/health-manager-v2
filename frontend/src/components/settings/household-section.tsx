@@ -20,7 +20,7 @@ import {
   setUserRole,
 } from "../../lib/api/household";
 import type { HouseholdRole, HouseholdUser } from "../../lib/types/household";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 const ROLES: HouseholdRole[] = ["admin", "member", "viewer"];
 
@@ -68,7 +68,7 @@ function NameCard() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rename failed.");
+      setError(errorMessage(err, "Rename failed."));
     } finally {
       setBusy(false);
     }
@@ -204,7 +204,7 @@ function InvitesCard() {
       setCreated(invitation.token);
       await mutate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create invite.");
+      setError(errorMessage(err, "Could not create invite."));
     } finally {
       setBusy(false);
     }

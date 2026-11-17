@@ -10,7 +10,7 @@ import {
   isBoosterOverdue,
   type Vaccination,
 } from "../../lib/types/vaccination";
-import { todayIso, formatDate } from "../../lib/utils";
+import { errorMessage, formatDate, todayIso } from "../../lib/utils";
 
 /** Vaccination list + add form with booster-due tracking. */
 export default function VaccinationsSection({
@@ -54,7 +54,7 @@ export default function VaccinationsSection({
       await mutate();
     } catch (err) {
       setFormError(
-        err instanceof Error ? err.message : "Could not add the vaccination.",
+        errorMessage(err, "Could not add the vaccination."),
       );
     } finally {
       setSaving(false);
@@ -187,7 +187,7 @@ export default function VaccinationsSection({
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load vaccinations.{" "}
-          {listError instanceof Error ? listError.message : ""}
+          {errorMessage(listError, "")}
         </p>
       ) : list.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">

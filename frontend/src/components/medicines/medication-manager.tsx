@@ -25,7 +25,7 @@ import {
   type MedicationStatus,
   type ScheduleType,
 } from "../../lib/types/medication";
-import { INPUT_CLASS, cn, todayIso } from "../../lib/utils";
+import { INPUT_CLASS, cn, errorMessage, todayIso } from "../../lib/utils";
 
 export function MedicationManager({
   memberId,
@@ -343,7 +343,7 @@ function EditMedicationDialog({
       });
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save changes.");
+      setError(errorMessage(err, "Could not save changes."));
       setSubmitting(false);
     }
   }
@@ -661,7 +661,7 @@ function AddMedicationForm({
       setProviderId("");
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add medicine.");
+      setError(errorMessage(err, "Could not add medicine."));
     } finally {
       setSubmitting(false);
     }

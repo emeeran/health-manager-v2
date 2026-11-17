@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { createShareLink, revokeShareLink } from "../../lib/api/share-links";
 import { useEscClose } from "../../hooks/use-esc-close";
 import type { ShareLinkCreated, ShareLinkSummary } from "../../lib/types/share";
-import { formatYearMonthDay } from "../../lib/utils";
+import { errorMessage, formatYearMonthDay } from "../../lib/utils";
 
 const EXPIRY_OPTIONS = [1, 7, 14, 30, 90] as const;
 
@@ -43,7 +43,7 @@ export function ShareDialog({
       setCreated(await createShareLink(memberId, expiresDays));
       void mutate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create link.");
+      setError(errorMessage(err, "Could not create link."));
     } finally {
       setCreating(false);
     }

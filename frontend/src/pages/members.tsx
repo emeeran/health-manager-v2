@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import useSWR from "swr";
 import { createMember, deleteMember } from "../lib/api/members";
 import { RELATIONSHIPS, type Member } from "../lib/types/member";
+import { errorMessage } from "../lib/utils";
 
 function formatBirthDate(value: string | null): string {
   if (!value) return "—";
@@ -27,7 +28,7 @@ export default function Members() {
           role="alert"
           className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
-          Could not load members. {error instanceof Error ? error.message : ""}
+          Could not load members. {errorMessage(error, "")}
         </p>
       </div>
     );
@@ -126,7 +127,7 @@ function CreateMemberForm({ onCreated }: { onCreated: () => void }) {
       setBirthDate("");
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add member.");
+      setError(errorMessage(err, "Could not add member."));
     } finally {
       setSubmitting(false);
     }

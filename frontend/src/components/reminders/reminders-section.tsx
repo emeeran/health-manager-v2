@@ -13,7 +13,7 @@ import {
   type Reminder,
   type ReminderRepeat,
 } from "../../lib/types/reminder";
-import { INPUT_CLASS, cn, formatDateTime } from "../../lib/utils";
+import { INPUT_CLASS, cn, errorMessage, formatDateTime } from "../../lib/utils";
 
 /** `datetime-local` value for tomorrow at 09:00, in local time. */
 function tomorrowAtNine(): string {
@@ -95,7 +95,7 @@ export default function RemindersSection({ memberId }: { memberId: string }) {
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load reminders.{" "}
-          {error instanceof Error ? error.message : ""}
+          {errorMessage(error, "")}
         </p>
       )}
 
@@ -208,7 +208,7 @@ function AddReminderForm({
       setRepeat("none");
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add reminder.");
+      setError(errorMessage(err, "Could not add reminder."));
     } finally {
       setSubmitting(false);
     }

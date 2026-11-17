@@ -2,7 +2,7 @@ import { Heart, Loader2 } from "lucide-react";
 import useSWR from "swr";
 import { getAdherenceToday } from "../../lib/api/adherence";
 import { getMember } from "../../lib/api/members";
-import { formatDate } from "../../lib/utils";
+import { errorMessage, formatDate } from "../../lib/utils";
 import {
   SLOT_ORDER,
   doseTime,
@@ -79,7 +79,7 @@ export function MedicineScheduleCard({ memberId }: { memberId: string }) {
         className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
       >
         Could not load today's schedule.{" "}
-        {error instanceof Error ? error.message : ""}
+        {errorMessage(error, "")}
       </p>
     );
   }

@@ -15,7 +15,7 @@ import {
   type SymptomEntry,
   type SymptomSeverity,
 } from "../../lib/types/symptom";
-import { todayIso, formatDate } from "../../lib/utils";
+import { errorMessage, formatDate, todayIso } from "../../lib/utils";
 
 const SEVERITY_STYLES: Record<SymptomSeverity, string> = {
   mild: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -55,7 +55,7 @@ export default function SymptomJournal({ memberId }: { memberId: string }) {
       await action();
       await mutate();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : fallback);
+      setActionError(errorMessage(err, fallback));
     } finally {
       setBusy(false);
     }
@@ -107,7 +107,7 @@ export default function SymptomJournal({ memberId }: { memberId: string }) {
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load the journal.{" "}
-          {listError instanceof Error ? listError.message : ""}
+          {errorMessage(listError, "")}
         </p>
       </section>
     );

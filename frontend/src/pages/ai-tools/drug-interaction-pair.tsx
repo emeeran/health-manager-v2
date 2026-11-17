@@ -9,6 +9,7 @@ import {
 } from "../../lib/api/drug-interactions";
 import { searchDrugs } from "../../lib/api/drugs";
 import { listMedications } from "../../lib/api/medications";
+import { errorMessage } from "../../lib/utils";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
@@ -45,7 +46,7 @@ function PairTool({ memberId }: { memberId: string }) {
     try {
       setResult(await checkPairInteraction(memberId, a, b));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Interaction check failed.");
+      setError(errorMessage(err, "Interaction check failed."));
     } finally {
       setRunning(false);
     }

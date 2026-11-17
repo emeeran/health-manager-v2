@@ -28,7 +28,7 @@ import {
   type ConditionStatus,
   type ConditionUpdateInput,
 } from "../../lib/types/condition";
-import { INPUT_CLASS, todayIso } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage, todayIso } from "../../lib/utils";
 
 /**
  * Conditions tab — the member's problem list: condition episodes CRUD with
@@ -66,7 +66,7 @@ export function ConditionsTab({ memberId }: { memberId: string }) {
             className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             Could not load conditions.{" "}
-            {listError instanceof Error ? listError.message : ""}
+            {errorMessage(listError, "")}
           </p>
         ) : (conditions ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -136,7 +136,7 @@ function AddConditionForm({
       onAdded();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not add the condition.",
+        errorMessage(err, "Could not add the condition."),
       );
     } finally {
       setSaving(false);
@@ -268,7 +268,7 @@ function ConditionCard({
       await action();
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : fallback);
+      setError(errorMessage(err, fallback));
     } finally {
       setBusy(false);
     }
@@ -418,7 +418,7 @@ function LinkedRecords({
       setRecordId("");
       onChanged();
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : "Link failed.");
+      setLinkError(errorMessage(err, "Link failed."));
     } finally {
       setBusy(false);
     }
@@ -519,7 +519,7 @@ function LinkedMedications({
       setMedicationId("");
       onChanged();
     } catch (err) {
-      setLinkError(err instanceof Error ? err.message : "Link failed.");
+      setLinkError(errorMessage(err, "Link failed."));
     } finally {
       setBusy(false);
     }

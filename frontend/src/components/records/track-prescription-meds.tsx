@@ -3,6 +3,7 @@ import { Check, Loader2, Pill } from "lucide-react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { createMedication, listMedications } from "../../lib/api/medications";
 import type { HealthRecord } from "../../lib/types/record";
+import { errorMessage } from "../../lib/utils";
 
 interface ExtractedMed {
   name: string;
@@ -98,7 +99,7 @@ export function TrackPrescriptionMeds({
       await globalMutate(`/members/${memberId}/adherence/today`);
       setPhase("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add medicines.");
+      setError(errorMessage(err, "Could not add medicines."));
       setPhase("idle");
     }
   }

@@ -36,6 +36,7 @@ import { ShareDialog } from "../components/members/share-dialog";
 import { MemberEditDialog } from "../components/members/member-edit-dialog";
 import { type HealthRecord } from "../lib/types/record";
 import type { Member } from "../lib/types/member";
+import { errorMessage } from "../lib/utils";
 
 type TabId =
   "overview" | "records" | "trends" | "journal" | "safety" | "conditions";
@@ -132,7 +133,7 @@ export default function MemberDetail() {
           className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load this member.{" "}
-          {loadError instanceof Error ? loadError.message : ""}
+          {errorMessage(loadError, "")}
         </p>
       </div>
     );

@@ -9,7 +9,7 @@ import {
   type Lab,
   type LabFlag,
 } from "../../lib/types/lab";
-import { INPUT_CLASS, todayIso } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage, todayIso } from "../../lib/utils";
 
 /** Server flag wins; otherwise derive it from the numeric value vs range. */
 function resolveFlag(lab: Lab): LabFlag | null {
@@ -63,7 +63,7 @@ export default function LabsSection({ memberId }: { memberId: string }) {
           role="alert"
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
-          Could not load labs. {error instanceof Error ? error.message : ""}
+          Could not load labs. {errorMessage(error, "")}
         </p>
       )}
 
@@ -185,7 +185,7 @@ function AddLabForm({
       setValueNum("");
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add lab.");
+      setError(errorMessage(err, "Could not add lab."));
     } finally {
       setSubmitting(false);
     }

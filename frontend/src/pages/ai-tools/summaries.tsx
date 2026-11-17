@@ -10,7 +10,7 @@ import {
   type Insight,
   type InsightKind,
 } from "../../lib/types/insight";
-import { formatYearMonthDay } from "../../lib/utils";
+import { errorMessage, formatYearMonthDay } from "../../lib/utils";
 
 /** /ai-tools/summaries — past AI narratives for the selected member. */
 export default function SummariesPage() {
@@ -54,7 +54,7 @@ function SummariesList({ memberId }: { memberId: string }) {
           role="alert"
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
-          Could not load insights. {error instanceof Error ? error.message : ""}
+          Could not load insights. {errorMessage(error, "")}
         </p>
       )}
 

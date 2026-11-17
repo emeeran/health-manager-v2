@@ -14,7 +14,7 @@ import { getLatestInsight, streamInsight } from "../../lib/api/insights";
 import type { Insight, InsightKind } from "../../lib/types/insight";
 import { downloadText } from "../../lib/export";
 import { a5NoteFrom } from "../../lib/types/insight";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 import { Markdown } from "../shared/markdown";
 import { A5NoteView } from "./a5-note-view";
 import { AuditPanel } from "../reports/audit-panel";
@@ -115,7 +115,7 @@ export function InsightTool({
     } catch (err) {
       if (!controller.signal.aborted) {
         setRunError(
-          err instanceof Error ? err.message : "Report generation failed.",
+          errorMessage(err, "Report generation failed."),
         );
       }
     } finally {

@@ -2,6 +2,7 @@ import { Loader2, Pill, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AiToolPage } from "../../components/ai-tools/ai-tool-page";
 import { getDrugInfo, searchDrugs, type DrugInfo } from "../../lib/api/drugs";
+import { errorMessage } from "../../lib/utils";
 
 const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
@@ -41,7 +42,7 @@ function DrugInfoTool({ memberId }: { memberId: string }) {
     try {
       setInfo(await getDrugInfo(memberId, medicine));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Lookup failed.");
+      setError(errorMessage(err, "Lookup failed."));
     } finally {
       setRunning(false);
     }

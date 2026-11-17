@@ -52,6 +52,7 @@ import type {
   Verification,
 } from "../lib/types/ai";
 import type { FilenameMatch, HealthRecord } from "../lib/types/record";
+import { errorMessage } from "../lib/utils";
 
 function isImage(attachment: Attachment): boolean {
   return attachment.mime.startsWith("image/");
@@ -103,7 +104,7 @@ export default function RecordDetail() {
           className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load this record.{" "}
-          {error instanceof Error ? error.message : ""}
+          {errorMessage(error, "")}
         </p>
       </div>
     );
@@ -314,7 +315,7 @@ function AttachmentsSection({
       }
     } catch (err) {
       setUploadError(
-        err instanceof Error ? err.message : "Upload failed. Try again.",
+        errorMessage(err, "Upload failed. Try again."),
       );
     } finally {
       setUploading(false);
@@ -711,7 +712,7 @@ function ExtractWithAi({
     } catch (err) {
       if (!controller.signal.aborted) {
         setExtractError(
-          err instanceof Error ? err.message : "Extraction failed. Try again.",
+          errorMessage(err, "Extraction failed. Try again."),
         );
       }
     } finally {
@@ -731,7 +732,7 @@ function ExtractWithAi({
       onApplied();
     } catch (err) {
       setApplyError(
-        err instanceof Error ? err.message : "Could not apply to the record.",
+        errorMessage(err, "Could not apply to the record."),
       );
     } finally {
       setApplying(false);
@@ -793,7 +794,7 @@ function ExtractWithAi({
       } catch (err) {
         setQueueAt(index, {
           state: "failed",
-          detail: err instanceof Error ? err.message : "extraction failed",
+          detail: errorMessage(err, "extraction failed"),
         });
       }
     }

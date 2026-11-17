@@ -9,7 +9,7 @@ import {
   listPolicies,
 } from "../../lib/api/insurance";
 import type { ClaimStatus } from "../../lib/types/insurance";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 /**
  * Member insurance: policies with claim tracking. Policy numbers are
@@ -140,7 +140,7 @@ function PolicyForm({
       });
       await onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save policy.");
+      setError(errorMessage(err, "Could not save policy."));
     } finally {
       setBusy(false);
     }

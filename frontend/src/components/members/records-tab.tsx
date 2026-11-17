@@ -15,6 +15,7 @@ import { deleteRecords } from "../../lib/api/records";
 import { recordTypeMeta, RECORD_TYPE_META } from "../../lib/record-types";
 import { RECORD_TYPES, type HealthRecord, type RecordType } from "../../lib/types/record";
 import { ConfidentialityBadge } from "../records/confidentiality";
+import { errorMessage } from "../../lib/utils";
 
 interface DateGroup {
   date: string;
@@ -93,7 +94,7 @@ export function RecordsTab({
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete records.");
+      setError(errorMessage(err, "Could not delete records."));
     } finally {
       setDeleting(false);
     }

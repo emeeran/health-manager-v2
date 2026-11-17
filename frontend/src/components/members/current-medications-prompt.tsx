@@ -6,7 +6,7 @@ import {
   mergeCurrentMedications,
   updateMember,
 } from "../../lib/api/members";
-import { cn } from "../../lib/utils";
+import { cn, errorMessage } from "../../lib/utils";
 
 /**
  * Shown on prescription records: filing a prescription may change what the
@@ -32,7 +32,7 @@ export function CurrentMedicationsPrompt({ memberId }: { memberId: string }) {
       setSuggestion(merged);
       setPhase("review");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Merge failed.");
+      setError(errorMessage(err, "Merge failed."));
       setPhase("idle");
     }
   }
@@ -45,7 +45,7 @@ export function CurrentMedicationsPrompt({ memberId }: { memberId: string }) {
       });
       setPhase("saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save list.");
+      setError(errorMessage(err, "Could not save list."));
     }
   }
 

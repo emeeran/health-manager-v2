@@ -8,6 +8,7 @@ import {
 } from "../../lib/api/drugs";
 import { listMedications } from "../../lib/api/medications";
 import { downloadCsv } from "../../lib/export";
+import { errorMessage } from "../../lib/utils";
 
 const inputClass =
   "rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring";
@@ -64,7 +65,7 @@ function PriceTool({ memberId }: { memberId: string }) {
     try {
       setResult(await compareDrugPrices(names, { memberId }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Price comparison failed.");
+      setError(errorMessage(err, "Price comparison failed."));
     } finally {
       setRunning(false);
     }

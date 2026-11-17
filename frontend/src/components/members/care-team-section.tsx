@@ -8,6 +8,7 @@ import {
   unassignProvider,
 } from "../../lib/api/providers";
 import type { ProviderAssignment } from "../../lib/types/provider";
+import { errorMessage } from "../../lib/utils";
 
 /**
  * Member ↔ provider assignments (care team) with per-hospital UHIDs.
@@ -38,7 +39,7 @@ export function CareTeamSection({ memberId }: { memberId: string }) {
       await mutate();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not assign provider.",
+        errorMessage(err, "Could not assign provider."),
       );
     } finally {
       setBusy(false);

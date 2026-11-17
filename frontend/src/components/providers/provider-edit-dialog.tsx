@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { updateProvider } from "../../lib/api/providers";
 import { useEscClose } from "../../hooks/use-esc-close";
 import type { Provider } from "../../lib/types/provider";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 /** Edit dialog for a directory provider: prefilled, PATCH on save.
  * Mirrors the member edit dialog's styling. */
@@ -41,7 +41,7 @@ export function ProviderEditDialog({
       });
       onSaved(saved);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save changes.");
+      setError(errorMessage(err, "Could not save changes."));
       setSubmitting(false);
     }
   }

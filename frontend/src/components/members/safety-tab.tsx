@@ -21,7 +21,7 @@ import {
   type Allergy,
   type AllergySeverity,
 } from "../../lib/types/allergy";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 const SEVERITY_STYLES: Record<AllergySeverity, string> = {
   mild: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -76,7 +76,7 @@ export function SafetyTab({ memberId }: { memberId: string }) {
       await mutate();
     } catch (err) {
       setFormError(
-        err instanceof Error ? err.message : "Could not add the allergy.",
+        errorMessage(err, "Could not add the allergy."),
       );
     } finally {
       setSaving(false);
@@ -91,7 +91,7 @@ export function SafetyTab({ memberId }: { memberId: string }) {
       });
       await mutate();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Update failed.");
+      setActionError(errorMessage(err, "Update failed."));
     }
   }
 
@@ -102,7 +102,7 @@ export function SafetyTab({ memberId }: { memberId: string }) {
       await deleteAllergy(memberId, id);
       await mutate();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Delete failed.");
+      setActionError(errorMessage(err, "Delete failed."));
     } finally {
       setDeleting(null);
     }
@@ -194,7 +194,7 @@ export function SafetyTab({ memberId }: { memberId: string }) {
             className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             Could not load allergies.{" "}
-            {listError instanceof Error ? listError.message : ""}
+            {errorMessage(listError, "")}
           </p>
         ) : (allergies ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">

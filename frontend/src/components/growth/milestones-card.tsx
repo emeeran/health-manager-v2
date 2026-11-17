@@ -3,7 +3,7 @@ import useSWR from "swr";
 import { Footprints, Loader2 } from "lucide-react";
 import { getMilestones, setMilestone } from "../../lib/api/growth";
 import type { MilestonesResponse } from "../../lib/types/growth";
-import { formatDate, todayIso } from "../../lib/utils";
+import { errorMessage, formatDate, todayIso } from "../../lib/utils";
 
 /** Developmental milestone checklist with expected-status context. */
 export default function MilestonesCard({ memberId }: { memberId: string }) {
@@ -25,7 +25,7 @@ export default function MilestonesCard({ memberId }: { memberId: string }) {
       await mutate();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not update the milestone.",
+        errorMessage(err, "Could not update the milestone."),
       );
     } finally {
       setBusyKey(null);

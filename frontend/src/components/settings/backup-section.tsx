@@ -18,7 +18,7 @@ import {
 } from "../../lib/api/backup";
 import { formatFileSize } from "../../lib/types/attachment";
 import type { BackupInfo } from "../../lib/types/backup";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 export function BackupSection() {
   const {
@@ -48,7 +48,7 @@ export function BackupSection() {
         setNotice(`Automatic backups run ${value === "daily" ? "every day" : "every week"}.`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change the schedule.");
+      setError(errorMessage(err, "Could not change the schedule."));
       if (previous) mutateSchedule(previous, { revalidate: false });
     }
   }
@@ -61,7 +61,7 @@ export function BackupSection() {
       await mutate();
       setNotice(`Backup created: ${filename}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Backup failed.");
+      setError(errorMessage(err, "Backup failed."));
     } finally {
       setCreating(false);
     }
@@ -80,7 +80,7 @@ export function BackupSection() {
       const { message } = await requestRestore(backup.filename);
       setNotice(message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Restore request failed.");
+      setError(errorMessage(err, "Restore request failed."));
     } finally {
       setRestoringName(null);
     }

@@ -14,7 +14,7 @@ import {
   type Vital,
   type VitalType,
 } from "../../lib/types/vital";
-import { INPUT_CLASS, formatYearMonthDay } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage, formatYearMonthDay } from "../../lib/utils";
 
 const VitalsCharts = lazy(() => import("./vitals-charts"));
 
@@ -287,7 +287,7 @@ function LogReadingForm({
       onLogged();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not log the reading.",
+        errorMessage(err, "Could not log the reading."),
       );
     } finally {
       setSubmitting(false);

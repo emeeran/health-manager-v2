@@ -22,7 +22,7 @@ import {
 import { VerificationBadge } from "../components/verification-badge";
 import type { ChatMessage, ChatSource, Conversation } from "../lib/types/chat";
 import type { Member } from "../lib/types/member";
-import { INPUT_CLASS, cn } from "../lib/utils";
+import { INPUT_CLASS, cn, errorMessage } from "../lib/utils";
 
 export default function Chat() {
   const { data: members } = useSWR<Member[]>("/members");
@@ -57,7 +57,7 @@ export default function Chat() {
       await mutateList();
       setSelectedId(conversation.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start chat.");
+      setError(errorMessage(err, "Could not start chat."));
     } finally {
       setCreating(false);
     }
@@ -70,7 +70,7 @@ export default function Chat() {
       if (selectedId === conversationId) setSelectedId(null);
       await mutateList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed.");
+      setError(errorMessage(err, "Delete failed."));
     }
   }
 
@@ -262,7 +262,7 @@ export function ChatThread({
       onChanged();
     } catch (err) {
       setSendError(
-        err instanceof Error ? err.message : "Could not get a reply.",
+        errorMessage(err, "Could not get a reply."),
       );
       await mutate(); // still pick up the user message the server stored
     } finally {

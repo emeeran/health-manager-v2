@@ -16,6 +16,7 @@ import {
   finalizeBatchItems,
   type BatchFileItem,
 } from "../../lib/batch-stream";
+import { errorMessage } from "../../lib/utils";
 
 const MAX_BATCH_FILES = 20;
 
@@ -61,7 +62,7 @@ export default function BatchUpload({ memberId }: { memberId: string }) {
     } catch (err) {
       if (!controller.signal.aborted) {
         setError(
-          err instanceof Error ? err.message : "Batch extraction failed.",
+          errorMessage(err, "Batch extraction failed."),
         );
       }
       setItems((prev) => finalizeBatchItems(prev, names));

@@ -1,6 +1,7 @@
 import { ApiError } from "../api-client";
 import type { PublicShare } from "../types/share";
 import { toApiError } from "./sse";
+import { errorMessage } from "../utils";
 
 /**
  * Fetch the emergency summary behind a share token.
@@ -20,7 +21,7 @@ export async function getPublicShare(token: string): Promise<PublicShare> {
     throw new ApiError(
       0,
       undefined,
-      error instanceof Error ? error.message : "Network error",
+      errorMessage(error, "Network error"),
     );
   }
   if (!response.ok) {

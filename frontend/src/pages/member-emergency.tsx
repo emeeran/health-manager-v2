@@ -11,6 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import useSWR from "swr";
 import QRCode from "react-qr-code";
 import { getEmergencyCard } from "../lib/api/member";
+import { errorMessage } from "../lib/utils";
 
 function emergencyUrl(memberId: string): string {
   const base = window.location.origin;
@@ -44,7 +45,7 @@ export default function MemberEmergency() {
           className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load the emergency card.{" "}
-          {error instanceof Error ? error.message : ""}
+          {errorMessage(error, "")}
         </p>
       </div>
     );

@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+/** First error message from an unknown thrown value; fallback when it
+ * isn't an Error (api-client normalizes failures to ApiError, but catch
+ * blocks can receive anything). */
+export function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 /** Shared text-input classes — the standard form field look app-wide.
  * Compact variants (ai-tool-page, ai-providers-section) keep local strings. */
 export const INPUT_CLASS =

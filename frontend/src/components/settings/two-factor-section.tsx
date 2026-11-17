@@ -11,7 +11,7 @@ import useSWR from "swr";
 import QRCode from "react-qr-code";
 import { disable2fa, setup2fa, verify2fa } from "../../lib/api/auth";
 import type { TwoFactorSetup, User } from "../../lib/types/auth";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 /**
  * Two-factor enrolment and removal.
@@ -55,7 +55,7 @@ function SetupPanel({ onEnabled }: { onEnabled: () => void }) {
     try {
       setSetup(await setup2fa());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Setup failed.");
+      setError(errorMessage(err, "Setup failed."));
     } finally {
       setBusy(false);
     }
@@ -197,7 +197,7 @@ function DisablePanel({ onDisabled }: { onDisabled: () => void }) {
       await disable2fa(code);
       onDisabled();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not disable 2FA.");
+      setError(errorMessage(err, "Could not disable 2FA."));
     } finally {
       setBusy(false);
     }

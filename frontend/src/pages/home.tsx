@@ -12,6 +12,7 @@ import { getDashboardSummary } from "../lib/api/dashboard";
 import { listMembers } from "../lib/api/members";
 import type { DashboardSummary } from "../lib/types/dashboard";
 import type { Member } from "../lib/types/member";
+import { errorMessage } from "../lib/utils";
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -50,7 +51,7 @@ export default function Home() {
           className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load the dashboard.{" "}
-          {error instanceof Error ? error.message : ""}
+          {errorMessage(error, "")}
         </p>
       </div>
     );

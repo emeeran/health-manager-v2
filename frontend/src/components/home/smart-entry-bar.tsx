@@ -17,7 +17,7 @@ import {
 import { recordTypeMeta } from "../../lib/record-types";
 import type { RecordType } from "../../lib/types/record";
 import { VoiceMemoButton } from "./voice-memo-button";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 interface DraftState {
   parsed: SmartEntryDraft;
@@ -58,7 +58,7 @@ export function SmartEntryBar({ memberId }: { memberId?: string }) {
       setText("");
     } catch (err) {
       setParseError(
-        err instanceof Error ? err.message : "Could not parse the text.",
+        errorMessage(err, "Could not parse the text."),
       );
     } finally {
       setParsing(false);
@@ -184,7 +184,7 @@ function DraftCard({
     } catch (err) {
       onPatch({
         saving: false,
-        error: err instanceof Error ? err.message : "Could not save the draft.",
+        error: errorMessage(err, "Could not save the draft."),
       });
     }
   }

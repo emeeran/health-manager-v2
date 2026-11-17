@@ -22,6 +22,7 @@ import {
 import type { DedupResponse } from "../lib/types/hygiene";
 import type { HealthRecord } from "../lib/types/record";
 import type { Member } from "../lib/types/member";
+import { errorMessage } from "../lib/utils";
 
 /**
  * Data hygiene: scan each member's records for duplicate pairs, then merge
@@ -59,7 +60,7 @@ export default function DataHygiene() {
           role="alert"
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
-          Could not load members. {error instanceof Error ? error.message : ""}
+          Could not load members. {errorMessage(error, "")}
         </p>
       ) : (members ?? []).length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -151,7 +152,7 @@ function MemberScanSection({ member }: { member: Member }) {
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not scan duplicates.{" "}
-          {scanError instanceof Error ? scanError.message : ""}
+          {errorMessage(scanError, "")}
         </p>
       ) : pairs.length === 0 ? (
         <p className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
@@ -208,7 +209,7 @@ function DuplicatePairCard({
       setStage("success");
       onMerged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Merge failed.");
+      setError(errorMessage(err, "Merge failed."));
     } finally {
       setMerging(false);
     }

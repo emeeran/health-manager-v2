@@ -10,7 +10,7 @@ import type {
   DrugInteractionResponse,
 } from "../../lib/types/drug-interaction";
 import { SEVERITY_STYLES } from "../../lib/types/drug-interaction";
-import { formatYearMonthDay } from "../../lib/utils";
+import { errorMessage, formatYearMonthDay } from "../../lib/utils";
 import { Markdown } from "../shared/markdown";
 
 /**
@@ -35,7 +35,7 @@ export function DrugInteractionsView({ memberId }: { memberId: string }) {
       await mutate(fresh, { revalidate: false });
     } catch (err) {
       setRunError(
-        err instanceof Error ? err.message : "Interaction check failed.",
+        errorMessage(err, "Interaction check failed."),
       );
     } finally {
       setRunning(false);

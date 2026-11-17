@@ -1,6 +1,7 @@
 import { Loader2, Mic, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { transcribeVoiceMemo } from "../../lib/api/voice-memos";
+import { errorMessage } from "../../lib/utils";
 
 /**
  * Mic button for the smart-entry bar: records via MediaRecorder, sends the
@@ -119,7 +120,7 @@ export function VoiceMemoButton({
 
 /** Human hint for a transcription failure, e.g. missing faster-whisper. */
 export function transcribeHint(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err, String(err));
   if (message.toLowerCase().includes("faster-whisper")) {
     return "Voice transcription is off on this server — install faster-whisper (uv add 'faster-whisper').";
   }

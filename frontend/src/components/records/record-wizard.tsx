@@ -13,7 +13,7 @@ import {
   type WizardDraft,
 } from "../../lib/wizard-state";
 import { RECORD_TYPES, type HealthRecord } from "../../lib/types/record";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../../lib/utils";
 
 /**
  * Single-page new-record form (Type | Date / Doctor | Reason /
@@ -73,7 +73,7 @@ export default function RecordWizard({
       onCreated(record, files.length);
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Could not create record.",
+        errorMessage(err, "Could not create record."),
       );
     } finally {
       setSubmitting(false);

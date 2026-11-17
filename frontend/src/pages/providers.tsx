@@ -15,7 +15,7 @@ import {
 } from "../lib/api/providers";
 import { ProviderEditDialog } from "../components/providers/provider-edit-dialog";
 import type { Provider } from "../lib/types/provider";
-import { INPUT_CLASS } from "../lib/utils";
+import { INPUT_CLASS, errorMessage } from "../lib/utils";
 
 /** Household care directory: doctors and facilities members can be assigned to. */
 export default function Providers() {
@@ -61,7 +61,7 @@ export default function Providers() {
           className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           Could not load providers.{" "}
-          {error instanceof Error ? error.message : ""}
+          {errorMessage(error, "")}
         </p>
       )}
 
@@ -158,7 +158,7 @@ function AddProviderForm({ onCreated }: { onCreated: () => void }) {
       setPhone("");
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add provider.");
+      setError(errorMessage(err, "Could not add provider."));
     } finally {
       setBusy(false);
     }

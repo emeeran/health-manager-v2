@@ -29,6 +29,7 @@ import type {
   ProviderKeyStatus,
   WebFactcheckStatus,
 } from "../../lib/types/household";
+import { errorMessage } from "../../lib/utils";
 
 /** Known provider names — the board shows one row per provider. */
 const PROVIDER_NAMES = [
@@ -151,7 +152,7 @@ export function AiProvidersSection() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not save AI config.",
+        errorMessage(err, "Could not save AI config."),
       );
       await mutateConfig();
     } finally {
@@ -203,7 +204,7 @@ export function AiProvidersSection() {
       setTestResults((r) => ({ ...r, [name]: result }));
       await mutateFailover();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Test failed.");
+      setError(errorMessage(err, "Test failed."));
       setTestResults((r) => {
         const rest = { ...r };
         delete rest[name];
@@ -227,7 +228,7 @@ export function AiProvidersSection() {
         void patchOverride(name, { model: null });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Model refresh failed.");
+      setError(errorMessage(err, "Model refresh failed."));
     } finally {
       setFetchingModels((f) => {
         const rest = { ...f };
@@ -526,7 +527,7 @@ function ProviderDetails({
       setKeyDraft("");
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Could not save key.",
+        errorMessage(err, "Could not save key."),
       );
     } finally {
       setKeyBusy(false);
@@ -541,7 +542,7 @@ function ProviderDetails({
       setUrlDraft(null);
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Could not save URL.",
+        errorMessage(err, "Could not save URL."),
       );
     }
   }
