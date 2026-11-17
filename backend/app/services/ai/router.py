@@ -123,15 +123,7 @@ async def plan_for_household(db, household_id, local_only: bool = False) -> list
 
 async def first_available(plan: list) -> AIProvider | None:
     """First provider that passes availability (with a short negative cache)."""
-    now = time.monotonic()
-    for provider in plan:
-        cached = _health.get(provider.name, now)
-        ok = cached if cached is not None else await provider.available()
-        _health.set(provider.name, ok, now)
-        if ok:
-            found: AIProvider | None = provider
-            return found
-    return None
+    return next(iter(await available_providers(plan)), None)
 
 
 async def available_providers(plan: list) -> list:

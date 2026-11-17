@@ -25,6 +25,7 @@ from app.models import (
     Vaccination,
     VitalMeasurement,
 )
+from app.core.dates import age_years
 
 # Evidence budget: enough for a long history without blowing a local
 # model's context. Rows are added in clinical priority order below.
@@ -44,15 +45,6 @@ STALE_DAYS = {
 def _iso(value: date | datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
-
-def _age(birth_date: date | None, today: date) -> int | None:
-    if birth_date is None:
-        return None
-    return (
-        today.year
-        - birth_date.year
-        - ((today.month, today.day) < (birth_date.month, birth_date.day))
-    )
 
 
 def _row(
@@ -80,7 +72,7 @@ async def _household_names(db: AsyncSession, household_id: uuid.UUID) -> list[st
 
 def _profile_row(member: FamilyMember, today: date) -> dict:
     bits = []
-    age = _age(member.birth_date, today)
+    age = age_years(member.birth_date, today)
     if age is not None:
         bits.append(f"age {age}")
     if member.sex:
@@ -374,7 +366,7 @@ async def build_audit_context(db: AsyncSession, member_id: uuid.UUID) -> dict:
         "household_names": await _household_names(db, member.household_id),
         "active_medications": active_medications,
         "profile": {
-            "age_years": _age(member.birth_date, today),
+            "age_years": age_years(member.birth_date, today),
             "sex": member.sex,
             "relationship": member.relationship,
         },

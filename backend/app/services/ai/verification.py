@@ -17,12 +17,12 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-import json_repair
 from sqlalchemy import update
 
 from app.core.database import SessionLocal
 from app.models import FamilyMember, Verification
 from app.models.verification import VerificationStatus
+from app.services.ai.llm_output import parse_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +50,9 @@ def build_verify_prompt(document_text: str, extraction: dict) -> str:
 
 
 def parse_verdict(raw: str) -> tuple[VerificationStatus, str | None]:
-    # json_repair, not json.loads: local models love markdown fences and
-    # leading prose around an otherwise valid verdict object.
-    try:
-        data = json_repair.loads((raw or "").strip())
-    except Exception:
+    data = parse_llm_json(raw or "")
+    if not data:
         return VerificationStatus.FAILED, "verifier returned unparseable output"
-    if not isinstance(data, dict):
-        return VerificationStatus.FAILED, "verifier returned unexpected output"
     verdict = str(data.get("verdict", "")).lower()
     notes = data.get("notes") or None
     if verdict == "pass":

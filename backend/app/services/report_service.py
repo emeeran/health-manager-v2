@@ -18,7 +18,6 @@ from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
 from statistics import linear_regression
 
-import json_repair
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +35,8 @@ from app.models import (
     VitalMeasurement,
 )
 from app.services.dosing import expand_day
+from app.core.dates import age_years
+from app.services.ai.llm_output import parse_llm_json
 from app.services.insight_service import (
     CITATION_CONVENTION,
     CLINICAL_WRITING_STYLE,
@@ -108,15 +109,6 @@ async def _member_name(db: AsyncSession, member_id: uuid.UUID) -> str:
     member = await db.get(FamilyMember, member_id)
     return member.name if member else "Unknown"
 
-
-def _age_years(birth_date: date | None, today: date) -> int | None:
-    if birth_date is None:
-        return None
-    return (
-        today.year
-        - birth_date.year
-        - ((today.month, today.day) < (birth_date.month, birth_date.day))
-    )
 
 
 def _lab_reference_range(lab: LabResult) -> str | None:
@@ -372,7 +364,7 @@ async def snapshot_health_insights(db, member_id) -> dict:
             "name": member.name if member else "Unknown",
             "relationship": member.relationship if member else None,
             "birth_date": member.birth_date.isoformat() if member and member.birth_date else None,
-            "age_years": _age_years(member.birth_date, today) if member else None,
+            "age_years": age_years(member.birth_date, today) if member else None,
             "sex": member.sex if member else None,
             "blood_group": member.blood_group if member else None,
             "emergency_contact": (
@@ -689,11 +681,8 @@ def parse_a5_note(raw: str, stats: dict) -> tuple[PreConsultationA5, bool]:
     returns (models often cannot know the visit date), the sheet always
     carries today's date and the member's real name.
     """
-    try:
-        data = json_repair.loads((raw or "").strip())
-    except Exception:  # noqa: BLE001 — json_repair rarely raises, but be safe
-        data = None
-    if isinstance(data, dict):
+    data = parse_llm_json(raw or "")
+    if data:
         try:
             note = PreConsultationA5.model_validate(data)
             # Always code-stamped: models hallucinate dates, and today is

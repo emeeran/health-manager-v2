@@ -23,7 +23,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, get_household_id
 from app.models import FamilyMember, HealthRecord, RecordType, User
 from app.services.ai import router as ai_router
-from app.services.ai.extraction import parse_llm_json
+from app.services.ai.llm_output import parse_llm_json
 
 logger = logging.getLogger(__name__)
 

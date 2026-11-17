@@ -17,11 +17,12 @@ from datetime import date
 from typing import Any
 
 import fitz
-import json_repair
 from PIL import Image
 
 from app.core.config import get_settings
 from app.services.ai.base import ExtractionResult
+from app.services.ai import router as ai_router
+from app.services.ai.llm_output import parse_llm_json, strip_think_blocks
 from app.services.ai.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
@@ -91,50 +92,28 @@ def build_chunks(data: bytes, mime: str) -> list[PageChunk]:
 
 def merge_chunk_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Merge per-chunk extractions; later chunks never clobber earlier data."""
-    merged: dict[str, Any] = {
-        "record_date": None,
-        "doctor_name": None,
-        "facility": None,
-        "diagnosis": None,
-        "summary": None,
-        "patient": None,
-        "clinical_history": None,
-        "exam_findings": None,
-        "encounter_no": None,
-        "ward": None,
-        "address": None,
-        "phone": None,
-        "insurance": None,
-        "medications": [],
-        "imaging": [],
-        "screenings": [],
-        "labs": [],
-        "vitals": [],
-    }
+    scalar_keys = (
+        "record_date",
+        "doctor_name",
+        "facility",
+        "diagnosis",
+        "summary",
+        "patient",
+        "clinical_history",
+        "exam_findings",
+        "encounter_no",
+        "ward",
+        "address",
+        "phone",
+        "insurance",
+    )
+    list_keys = ("medications", "imaging", "screenings", "labs", "vitals")
+    merged: dict[str, Any] = {key: None for key in scalar_keys}
+    merged.update({key: [] for key in list_keys})
     for result in results:
-        for key in (
-            "medications",
-            "imaging",
-            "screenings",
-            "labs",
-            "vitals",
-        ):
+        for key in list_keys:
             merged[key].extend(result.get(key) or [])
-        for key in (
-            "record_date",
-            "doctor_name",
-            "facility",
-            "diagnosis",
-            "summary",
-            "patient",
-            "clinical_history",
-            "exam_findings",
-            "encounter_no",
-            "ward",
-            "address",
-            "phone",
-            "insurance",
-        ):
+        for key in scalar_keys:
             if result.get(key) and not merged[key]:
                 merged[key] = result[key]
     # A closing summary section often restates items an earlier chunk already
@@ -156,22 +135,6 @@ def merge_chunk_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             deduped.append(item)
         merged[key] = deduped
     return merged
-
-
-def parse_llm_json(raw: str) -> dict[str, Any]:
-    """Parse model output into a dict, defensively.
-
-    Thinking models (qwen3 etc.) intermittently wrap the JSON in
-    <think>…</think> or prose — strip to the outermost {...} before
-    repair so a chatty preamble can't reduce the result to {}.
-    """
-    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start != -1 and end > start:
-        cleaned = cleaned[start : end + 1]
-    parsed: Any = json_repair.loads(cleaned)
-    return parsed if isinstance(parsed, dict) else {}
 
 
 async def _complete_chunk(provider, chunk: PageChunk, progress: Callable) -> dict:
@@ -228,6 +191,25 @@ def _short_provider_error(exc: Exception) -> str:
     return msg or type(exc).__name__
 
 
+async def _try_providers(candidates, attempt, log_label: str, on_failure=None):
+    """Run ``attempt(provider)`` across the list, negative-caching failures
+    and logging one line per loser; re-raise an aggregate error listing
+    every provider that failed once the list is exhausted."""
+    failures: list[str] = []
+    for provider in candidates:
+        try:
+            return await attempt(provider)
+        except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
+            failures.append(f"{provider.name}: {_short_provider_error(exc)}")
+            ai_router.mark_unhealthy(provider.name)
+            logger.warning(
+                "%s failed via %s: %s — trying next provider", log_label, provider.name, exc
+            )
+            if on_failure:
+                on_failure(provider.name)
+    raise RuntimeError("all providers failed — " + "; ".join(failures))
+
+
 async def run_extraction_with_failover(
     data: bytes,
     mime: str,
@@ -244,28 +226,24 @@ async def run_extraction_with_failover(
     blames the tail of the plan for a failure rooted earlier in it.
     ``result.provider_used`` reports who actually won.
     """
-    from app.services.ai import router as ai_router
-
     progress = progress or (lambda stage, message: None)
     if not plan:
         raise RuntimeError("No AI provider available")
-    failures: list[str] = []
-    for provider in plan:
-        try:
-            return await run_extraction(data, mime, provider, progress)
-        except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
-            failures.append(f"{provider.name}: {_short_provider_error(exc)}")
-            ai_router.mark_unhealthy(provider.name)
-            logger.warning(
-                "extraction failed via %s: %s — trying next provider", provider.name, exc
-            )
-            progress("failover", f"{provider.name} failed — trying next provider")
-    raise RuntimeError("all providers failed — " + "; ".join(failures))
+
+    async def attempt(provider):
+        return await run_extraction(data, mime, provider, progress)
+
+    return await _try_providers(
+        plan,
+        attempt,
+        "extraction",
+        on_failure=lambda name: progress("failover", f"{name} failed — trying next provider"),
+    )
 
 
 def strip_report_markdown(raw: str) -> str:
     """Clean an LLM report reply down to the bare markdown document."""
-    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL)
+    cleaned = strip_think_blocks(raw).rstrip()
     # A fence-wrapped document (```markdown … ```) is common despite the
     # prompt; unwrap the outermost fence instead of rendering the ticks.
     fence = re.match(
@@ -288,8 +266,6 @@ async def run_consolidated_report(
     plan with the same failover semantics. Raises when every provider
     fails — callers treat the report as optional and keep the extraction.
     """
-    from app.services.ai import router as ai_router
-
     progress = progress or (lambda stage, message: None)
     if not plan:
         raise RuntimeError("No AI provider available")
@@ -307,23 +283,14 @@ async def run_consolidated_report(
     candidates = await ai_router.available_providers(plan)
     if not candidates:
         raise RuntimeError("No AI provider available")
-    last_exc: Exception | None = None
-    for provider in candidates:
-        try:
-            raw = await provider.complete(
-                prompt, max_tokens=get_settings().EXTRACTION_MAX_TOKENS
-            )
-            report = strip_report_markdown(raw)
-            if report:
-                return report
+
+    async def attempt(provider):
+        raw = await provider.complete(
+            prompt, max_tokens=get_settings().EXTRACTION_MAX_TOKENS
+        )
+        report = strip_report_markdown(raw)
+        if not report:
             raise RuntimeError("model returned an empty report")
-        except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
-            last_exc = exc
-            ai_router.mark_unhealthy(provider.name)
-            logger.warning(
-                "consolidated report failed via %s: %s — trying next provider",
-                provider.name,
-                exc,
-            )
-    assert last_exc is not None
-    raise last_exc
+        return report
+
+    return await _try_providers(candidates, attempt, "consolidated report")

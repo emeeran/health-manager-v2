@@ -36,7 +36,7 @@ from app.models import (
     normalize_medicine_key,
 )
 from app.services.ai import router as ai_router
-from app.services.ai.extraction import parse_llm_json
+from app.services.ai.llm_output import parse_llm_json
 
 logger = logging.getLogger(__name__)
 

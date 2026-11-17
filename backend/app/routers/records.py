@@ -84,17 +84,7 @@ def _to_response(record: HealthRecord, provider_name: str | None = None) -> Reco
 
 async def _provider_name(record: HealthRecord, user: User, db: AsyncSession) -> str | None:
     """Directory name for the record's linked provider (household-scoped)."""
-    from app.core.deps import get_household_id
-
-    from app.models import Provider
-
-    if record.provider_id is None:
-        return None
-    household_id = await get_household_id(user, db)
-    provider = await db.get(Provider, record.provider_id)
-    if provider is None or provider.household_id != household_id:
-        return None
-    return provider.name
+    return (await _provider_names([record], user, db)).get(record.provider_id)
 
 
 async def _provider_names(records: list[HealthRecord], user: User, db: AsyncSession) -> dict:

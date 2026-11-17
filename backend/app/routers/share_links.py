@@ -2,7 +2,7 @@
 
 import hashlib
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -19,6 +19,7 @@ from app.models import (
     ShareLink,
     User,
 )
+from app.core.dates import age_years
 
 router = APIRouter(prefix="/members/{member_id}/share-links", tags=["share"])
 public_router = APIRouter(prefix="/public/share", tags=["share"])
@@ -113,14 +114,6 @@ class PublicShareResponse(BaseModel):
     generated_at: datetime
 
 
-def _age_years(birth_date) -> int | None:  # noqa: ANN001
-    if birth_date is None:
-        return None
-    birth = date(birth_date.year, birth_date.month, birth_date.day)
-    today = datetime.now(UTC).date()
-    return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
-
-
 @public_router.get("/{token}", response_model=PublicShareResponse)
 async def public_share(
     token: str,
@@ -161,7 +154,7 @@ async def public_share(
         member={
             "name": member.name,
             "relationship": member.relationship,
-            "age_years": _age_years(member.birth_date),
+            "age_years": age_years(member.birth_date),
         },
         medications=[{"medicine": m.medicine, "dosage": m.dosage} for m in meds],
         allergies=[{"substance": a.substance, "severity": a.severity} for a in allergies],

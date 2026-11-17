@@ -19,6 +19,7 @@ from app.models.condition import ConditionEpisode
 from app.models.member import FamilyMember
 from app.models.preventive import PreventiveDismissal
 from app.models.vital import VitalMeasurement
+from app.core.dates import age_years
 
 
 # Sex restriction on a rule: None = all, else "male"/"female".
@@ -103,18 +104,6 @@ def rec_key_for(title: str) -> str:
     return _slug_re.sub("-", title.lower()).strip("-")
 
 
-def age_of(member: FamilyMember) -> int | None:
-    """Age in whole years from birth_date, or None when unknown."""
-    if member.birth_date is None:
-        return None
-    today = member.birth_date.today()
-    return (
-        today.year
-        - member.birth_date.year
-        - ((today.month, today.day) < (member.birth_date.month, member.birth_date.day))
-    )
-
-
 async def _condition_keywords(db: AsyncSession, member: FamilyMember) -> str:
     """Lowercase blob of the member's problem list + medical-history text."""
     rows = await db.scalars(
@@ -162,7 +151,7 @@ async def generate_recommendations(db: AsyncSession, member: FamilyMember) -> li
     title. Every returned rec is currently due — the dismissal table is what
     removes one.
     """
-    age = age_of(member)
+    age = age_years(member.birth_date)
     sex = (member.sex or "").lower() or None
     recs: dict[str, dict] = {}
 

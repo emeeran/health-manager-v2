@@ -1,6 +1,5 @@
 """Family member CRUD, scoped to the caller's household."""
 
-import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,6 +16,7 @@ from app.schemas.member import (
     MemberUpdate,
 )
 from app.services.ai import router as ai_router
+from app.services.ai.llm_output import strip_think_blocks
 
 router = APIRouter(prefix="/members", tags=["members"])
 
@@ -142,5 +142,4 @@ async def merge_current_medications(
     )
     raw = await provider.complete(prompt, system=MEDICATIONS_MERGE_SYSTEM, max_tokens=600)
     # Plain-text list, not JSON — only strip thinking-model wrappers.
-    cleaned = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-    return MedicationMergeSuggestion(suggestion=cleaned)
+    return MedicationMergeSuggestion(suggestion=strip_think_blocks(raw))

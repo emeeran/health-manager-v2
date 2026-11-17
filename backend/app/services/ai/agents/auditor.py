@@ -14,7 +14,6 @@ import json
 import logging
 from typing import Literal, cast, get_args
 
-import json_repair
 from sqlalchemy import select
 
 from app.core.config import get_settings
@@ -39,6 +38,7 @@ from app.services.ai.agents.contracts import (
 from app.services.ai import web_search
 from app.services.audit import record_audit
 from app.services.insight_service import JSON_HARD_RULES, render_schema_block
+from app.services.ai.llm_output import parse_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -150,11 +150,8 @@ def _coerce_claim(item: object) -> ClaimDraft | None:
 
 def parse_draft(raw: str, *, max_claims: int | None = None) -> AuditDraft | None:
     """Parse a chatty or fenced JSON reply into a validated draft."""
-    try:
-        payload = json_repair.loads((raw or "").strip())
-    except Exception:  # noqa: BLE001 — json_repair rarely raises, but be safe
-        return None
-    if not isinstance(payload, dict):
+    payload = parse_llm_json(raw or "")
+    if not payload:
         return None
     cap = max_claims or get_settings().AUDIT_MAX_CLAIMS
     claims = [
@@ -256,11 +253,8 @@ def build_web_prompt(
 
 
 def parse_web(raw: str) -> WebAdjudication:
-    try:
-        payload = json_repair.loads((raw or "").strip())
-    except Exception:  # noqa: BLE001
-        return WebAdjudication()
-    if not isinstance(payload, dict):
+    payload = parse_llm_json(raw or "")
+    if not payload:
         return WebAdjudication()
     findings = []
     for item in payload.get("findings") or []:
