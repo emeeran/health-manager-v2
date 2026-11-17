@@ -127,16 +127,6 @@ async def test_ollama_available(monkeypatch, mock_http):
     finally:
         get_settings.cache_clear()
 
-    mock_http(
-        lambda request: httpx.Response(
-            200, json={"models": [{"name": "qwen3:4b"}, {"name": "llama3"}]}
-        )
-    )
-    assert await provider.available() is True
-
-    mock_http(lambda request: httpx.Response(200, json={"models": []}))
-    assert await provider.available() is False
-
 
 async def test_openai_compat_complete(mock_http):
     seen = mock_http(

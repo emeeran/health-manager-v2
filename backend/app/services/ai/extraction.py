@@ -29,9 +29,6 @@ logger = logging.getLogger(__name__)
 VISION_MAX_DIM = 1568
 MIN_EMBEDDED_TEXT_CHARS = 100
 
-# Module-level callables so tests can patch them (upstream pattern).
-call_provider = None  # set by run_extraction; patched in tests
-
 
 @dataclass
 class PageChunk:

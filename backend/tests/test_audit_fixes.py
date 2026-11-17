@@ -271,7 +271,7 @@ async def test_run_verification_fails_over_to_next_candidate(auth_client):
 
 
 def test_pick_verifiers_prefers_others_then_self():
-    from app.services.ai.verification import pick_verifier, pick_verifiers
+    from app.services.ai.verification import pick_verifiers
 
     class P:
         def __init__(self, name):
@@ -281,9 +281,8 @@ def test_pick_verifiers_prefers_others_then_self():
     plan = [a, b, c]
     # Others first, in plan order; the producer itself comes last.
     assert [p.name for p in pick_verifiers(plan, "groq")] == ["gemini", "ollama", "groq"]
-    assert pick_verifier(plan, "groq").name == "gemini"
     # Self only when it's all there is.
-    assert pick_verifier([a], "gemini").name == "gemini"
+    assert [p.name for p in pick_verifiers([a], "gemini")] == ["gemini"]
     assert pick_verifiers([], "gemini") == []
 
 

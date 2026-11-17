@@ -51,13 +51,6 @@ export interface RecordCreate {
   confidentiality_level?: ConfidentialityLevel;
 }
 
-/** Fields the backend merges into an existing record on PATCH. */
-export interface RecordUpdate {
-  clinical_data?: Record<string, unknown>;
-  diagnosis?: string;
-  summary?: string;
-}
-
 export interface RecordListParams {
   record_type?: RecordType;
   limit?: number;

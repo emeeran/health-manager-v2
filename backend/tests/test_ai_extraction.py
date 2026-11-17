@@ -204,10 +204,10 @@ async def test_verification_completes_with_verdict(auth_client, patch_plan):
         )
     ).json()
 
-    # pick_verifier must choose the OTHER provider.
-    from app.services.ai.verification import pick_verifier
+    # pick_verifiers must list the OTHER provider first.
+    from app.services.ai.verification import pick_verifiers
 
-    assert pick_verifier([extractor, verifier], "extractor").name == "verifier"
+    assert pick_verifiers([extractor, verifier], "extractor")[0].name == "verifier"
 
     vid = body["verification_id"]
     import asyncio

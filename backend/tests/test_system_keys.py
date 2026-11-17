@@ -33,7 +33,11 @@ async def test_set_list_mask_delete(auth_client):
 
 @pytest.mark.asyncio
 async def test_stored_key_beats_env(auth_client, session_factory):
-    # Settings default OLLAMA_MODEL=qwen3:4b; a stored override wins.
+    from app.core.config import get_settings
+
+    # A stored override wins at resolve time; storing it must not touch Settings
+    # (whatever the surrounding environment configured for OLLAMA_MODEL).
+    env_model = get_settings().OLLAMA_MODEL
     put = await auth_client.put(
         "/api/v1/system/provider-keys/OLLAMA_MODEL", json={"value": "llama3:8b"}
     )
@@ -42,9 +46,8 @@ async def test_stored_key_beats_env(auth_client, session_factory):
     async with session_factory() as session:
         resolved = await provider_keys.resolve_key(session, "OLLAMA_MODEL")
     assert resolved == "llama3:8b"
-    from app.core.config import get_settings
 
-    assert get_settings().OLLAMA_MODEL == "qwen3:4b"  # env untouched
+    assert get_settings().OLLAMA_MODEL == env_model  # settings untouched
 
 
 @pytest.mark.asyncio

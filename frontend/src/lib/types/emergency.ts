@@ -19,13 +19,3 @@ export interface EmergencyCard {
     uhid: string | null;
   }[];
 }
-
-export type HistoryItemType = "record" | "medication" | "lab" | "vital";
-
-export interface HistoryItem {
-  type: HistoryItemType;
-  date: string;
-  title: string;
-  detail: string | null;
-  ref_id: string;
-}

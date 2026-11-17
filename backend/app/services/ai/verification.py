@@ -168,13 +168,6 @@ def pick_verifiers(plan: list, used_name: str) -> list:
     return candidates
 
 
-def pick_verifier(plan: list, used_name: str):
-    """First verifier candidate (different provider than the one that did
-    the work; same-name self-check only when it's all there is)."""
-    candidates = pick_verifiers(plan, used_name)
-    return candidates[0] if candidates else None
-
-
 async def schedule_audit(
     db,
     member_id: uuid.UUID,
