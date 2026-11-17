@@ -1,35 +1,24 @@
-import {
-  Bot,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Globe2,
-  Loader2,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Bot, Globe2, Loader2, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 import {
-  deleteProviderKey,
   getAiConfig,
   getWebFactcheckStatus,
   listAiProviders,
   listProviderKeys,
-  listProviderModels,
   putAiConfig,
-  setProviderKey,
-  testAiProvider,
 } from "../../lib/api/household";
 import type {
   AiConfig,
   AiProviderConfig,
-  AiProviderTestResult,
   ProviderKeyStatus,
   WebFactcheckStatus,
 } from "../../lib/types/household";
 import { errorMessage } from "../../lib/utils";
+import { ProviderDetails } from "./provider-details";
+import { ProviderRowView } from "./provider-row";
+import type { ProviderRow } from "./provider-row";
+import { useProviderDiagnostics } from "./use-provider-diagnostics";
 
 /** Known provider names — the board shows one row per provider. */
 const PROVIDER_NAMES = [
@@ -46,19 +35,6 @@ const PROVIDER_NAMES = [
 /** Model suggestions are never hardcoded — providers rotate model names
  * (Groq retired the shipped default within months), so the picker shows
  * only the live catalogue fetched per key via the row's Refresh button. */
-
-/** One merged row of the board: failover entry, stored credentials and the
- * household override for a single provider. */
-interface ProviderRow {
-  name: string;
-  failover?: { model: string; local: boolean };
-  override?: AiProviderConfig;
-  apiKey?: ProviderKeyStatus;
-  baseUrl?: ProviderKeyStatus;
-}
-
-const inputClass =
-  "w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring";
 
 /**
  * Per-household AI routing, compacted into one board: a primary select, one
@@ -81,18 +57,27 @@ export function AiProvidersSection() {
 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [testResults, setTestResults] = useState<
-    Record<string, AiProviderTestResult | "testing">
-  >({});
-  // Live model catalogues fetched via the row's Refresh button — the only
-  // source of picker suggestions, so stale names can never resurface.
-  const [modelLists, setModelLists] = useState<Record<string, string[]>>({});
-  const [fetchingModels, setFetchingModels] = useState<Record<string, boolean>>(
-    {},
-  );
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Function declarations below are hoisted, so this hook can wire
+  // patchOverride before the early return — its callbacks only ever run
+  // once the data has loaded.
+  const {
+    testResults,
+    modelLists,
+    fetchingModels,
+    test,
+    refreshModels,
+    clearTestResults,
+  } = useProviderDiagnostics({
+    mutateFailover: () => mutateFailover(),
+    onRefreshStart: (name) => setExpanded(name),
+    getOverrideModel: (name) => config?.providers.find((p) => p.name === name)?.model,
+    patchOverride,
+    setError,
+  });
 
   if (!config || !failover || !keysData) return null;
   const cfg = config;
@@ -196,48 +181,6 @@ export function AiProvidersSection() {
     void patchOverride(name, { enabled });
   }
 
-  async function test(name: string) {
-    setError(null);
-    setTestResults((r) => ({ ...r, [name]: "testing" }));
-    try {
-      const result = await testAiProvider(name);
-      setTestResults((r) => ({ ...r, [name]: result }));
-      await mutateFailover();
-    } catch (err) {
-      setError(errorMessage(err, "Test failed."));
-      setTestResults((r) => {
-        const rest = { ...r };
-        delete rest[name];
-        return rest;
-      });
-    }
-  }
-
-  async function refreshModels(name: string) {
-    setError(null);
-    setFetchingModels((f) => ({ ...f, [name]: true }));
-    setExpanded(name); // surface the picker the fresh list feeds
-    try {
-      const { models } = await listProviderModels(name);
-      setModelLists((lists) => ({ ...lists, [name]: models }));
-      // Purge a persisted override the key's catalogue no longer serves —
-      // the row falls back to the server default instead of failing every
-      // request with a decommissioned model name.
-      const override = cfg.providers.find((p) => p.name === name);
-      if (override?.model && !models.includes(override.model)) {
-        void patchOverride(name, { model: null });
-      }
-    } catch (err) {
-      setError(errorMessage(err, "Model refresh failed."));
-    } finally {
-      setFetchingModels((f) => {
-        const rest = { ...f };
-        delete rest[name];
-        return rest;
-      });
-    }
-  }
-
   return (
     <section
       aria-label="AI providers"
@@ -275,7 +218,7 @@ export function AiProvidersSection() {
         <button
           type="button"
           onClick={() => {
-            setTestResults({});
+            clearTestResults();
             void mutateFailover();
           }}
           aria-label="Refresh provider list"
@@ -301,128 +244,29 @@ export function AiProvidersSection() {
       <ul className="divide-y divide-border rounded-lg border border-border">
         {visible.map((row) => {
           const model = row.override?.model || row.failover?.model || null;
-          const result = testResults[row.name];
           const isExpanded = expanded === row.name;
           return (
-            <li key={row.name} data-testid={`provider-row-${row.name}`}>
-              <div
-                className={`flex flex-wrap items-center gap-2 px-3 py-2 text-xs ${
-                  isExpanded ? "bg-muted/30" : ""
-                }`}
-              >
-                <KeyDot row={row} />
-                <button
-                  type="button"
-                  onClick={() => setExpanded(isExpanded ? null : row.name)}
-                  aria-expanded={isExpanded}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  <span className="font-medium capitalize">{row.name}</span>
-                  <span className="truncate text-muted-foreground">
-                    {model ?? "default"}
-                  </span>
-                  {row.failover?.local && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                      local
-                    </span>
-                  )}
-                  {row.override && !row.override.enabled && (
-                    <span className="rounded-full bg-danger/10 px-2 py-0.5 text-danger">
-                      disabled
-                    </span>
-                  )}
-                  {row.failover && (
-                    <span className="text-muted-foreground/60">
-                      #
-                      {failover.providers.findIndex(
-                        (p) => p.name === row.name,
-                      ) + 1}
-                    </span>
-                  )}
-                  <ChevronDown
-                    className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
-                    aria-hidden
-                  />
-                </button>
-                {typeof result === "object" &&
-                  (result.ok ? (
-                    <span className="flex items-center gap-1 text-primary">
-                      <Check className="size-3.5" aria-hidden />
-                      {result.latency_ms} ms
-                    </span>
-                  ) : (
-                    <span
-                      className="flex items-center gap-1 text-danger"
-                      title={result.error ?? ""}
-                    >
-                      <X className="size-3.5" aria-hidden />
-                      failed
-                    </span>
-                  ))}
-                {result === "testing" && (
-                  <Loader2
-                    className="size-3.5 animate-spin text-muted-foreground"
-                    aria-hidden
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => void refreshModels(row.name)}
-                  disabled={fetchingModels[row.name]}
-                  title="Refresh model list"
-                  className="rounded-lg border border-border p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-                  aria-label={`Refresh models for ${row.name}`}
-                >
-                  {fetchingModels[row.name] ? (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw className="size-3.5" aria-hidden />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void test(row.name)}
-                  disabled={result === "testing"}
-                  className="rounded-lg border border-border px-2 py-1 font-medium transition-colors hover:bg-muted disabled:opacity-50"
-                  aria-label={`Test ${row.name} connection`}
-                >
-                  Test
-                </button>
-                <span className="flex shrink-0 flex-col">
-                  <button
-                    type="button"
-                    onClick={() => moveRow(row.name, -1)}
-                    disabled={busy || row.name === ranked[0]?.name}
-                    aria-label={`Move ${row.name} up in failover order`}
-                    className="rounded-t-md border border-border px-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronUp className="size-3" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveRow(row.name, 1)}
-                    disabled={busy || row.name === ranked[ranked.length - 1]?.name}
-                    aria-label={`Move ${row.name} down in failover order`}
-                    className="rounded-b-md border border-border px-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronDown className="size-3" aria-hidden />
-                  </button>
-                </span>
-                <label
-                  className="flex shrink-0 items-center gap-1 text-muted-foreground"
-                  title="Included in the failover plan"
-                >
-                  <input
-                    type="checkbox"
-                    checked={row.override?.enabled ?? true}
-                    disabled={busy}
-                    onChange={(e) => setEnabled(row.name, e.target.checked)}
-                    aria-label={`Enable ${row.name}`}
-                  />
-                </label>
-              </div>
+            <ProviderRowView
+              key={row.name}
+              row={row}
+              model={model}
+              failoverRank={
+                row.failover
+                  ? failover.providers.findIndex((p) => p.name === row.name) + 1
+                  : undefined
+              }
+              result={testResults[row.name]}
+              fetchingModels={fetchingModels[row.name] ?? false}
+              busy={busy}
+              isExpanded={isExpanded}
+              isFirst={row.name === ranked[0]?.name}
+              isLast={row.name === ranked[ranked.length - 1]?.name}
+              onToggle={() => setExpanded(isExpanded ? null : row.name)}
+              onTest={() => void test(row.name)}
+              onRefreshModels={() => void refreshModels(row.name)}
+              onMove={(dir) => moveRow(row.name, dir)}
+              onSetEnabled={(enabled) => setEnabled(row.name, enabled)}
+            >
               {isExpanded && (
                 <ProviderDetails
                   row={row}
@@ -433,7 +277,7 @@ export function AiProvidersSection() {
                   onRemoveOverride={() => void removeOverride(row.name)}
                 />
               )}
-            </li>
+            </ProviderRowView>
           );
         })}
       </ul>
@@ -460,228 +304,5 @@ export function AiProvidersSection() {
         </p>
       )}
     </section>
-  );
-}
-
-/** Credential-status dot: filled = saved here, half = from the environment,
- * outline = not configured. */
-function KeyDot({ row }: { row: ProviderRow }) {
-  const source = row.apiKey?.set
-    ? row.apiKey.source
-    : row.baseUrl?.set
-      ? row.baseUrl.source
-      : null;
-  return (
-    <span
-      aria-label={
-        source === "db"
-          ? "key saved in app"
-          : source === "env"
-            ? "key from environment"
-            : "no key"
-      }
-      title={
-        source === "db"
-          ? "Key saved in the app (encrypted)"
-          : source === "env"
-            ? "Key from the server environment"
-            : "No key set"
-      }
-      className={`inline-block size-2 shrink-0 rounded-full ${
-        source === "db"
-          ? "bg-primary"
-          : source === "env"
-            ? "bg-muted-foreground/50"
-            : "border border-border"
-      }`}
-    />
-  );
-}
-
-/** Inline details for one provider: key, base URL, model override. */
-function ProviderDetails({
-  row,
-  models,
-  onPatchOverride,
-  onRemoveOverride,
-}: {
-  row: ProviderRow;
-  /** Fetched live catalogue, or the static fallback suggestions. */
-  models: string[];
-  onPatchOverride: (patch: Partial<AiProviderConfig>) => void;
-  onRemoveOverride: () => void;
-}) {
-  const [keyDraft, setKeyDraft] = useState("");
-  const [keyBusy, setKeyBusy] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const baseUrlKey = `${row.name.toUpperCase()}_BASE_URL`;
-  const [urlDraft, setUrlDraft] = useState<string | null>(null);
-  const [modelDraft, setModelDraft] = useState<string | null>(null);
-
-  async function saveKey() {
-    if (!keyDraft) return;
-    setKeyBusy(true);
-    setDetailError(null);
-    try {
-      await setProviderKey(`${row.name.toUpperCase()}_API_KEY`, keyDraft);
-      setKeyDraft("");
-    } catch (err) {
-      setDetailError(
-        errorMessage(err, "Could not save key."),
-      );
-    } finally {
-      setKeyBusy(false);
-    }
-  }
-
-  async function saveUrl() {
-    if (urlDraft === null) return;
-    setDetailError(null);
-    try {
-      await setProviderKey(baseUrlKey, urlDraft.trim());
-      setUrlDraft(null);
-    } catch (err) {
-      setDetailError(
-        errorMessage(err, "Could not save URL."),
-      );
-    }
-  }
-
-  return (
-    <div className="space-y-2.5 border-t border-border/60 px-3 py-3">
-      {row.apiKey && (
-        <div className="flex items-center gap-2">
-          <span className="w-24 shrink-0 font-mono text-xs text-muted-foreground">
-            API key
-          </span>
-          <input
-            type="password"
-            value={keyDraft}
-            onChange={(e) => setKeyDraft(e.target.value)}
-            placeholder={
-              row.apiKey.set ? (row.apiKey.value ?? "set") : "not set"
-            }
-            autoComplete="off"
-            aria-label={`API key for ${row.name}`}
-            className={inputClass}
-          />
-          <button
-            type="button"
-            onClick={() => void saveKey()}
-            disabled={keyBusy || !keyDraft}
-            className="shrink-0 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {keyBusy ? "…" : "Save key"}
-          </button>
-          {row.apiKey.source === "db" && (
-            <button
-              type="button"
-              aria-label={`Remove saved ${row.apiKey.name}`}
-              onClick={() =>
-                void deleteProviderKey(row.apiKey!.name).catch(() =>
-                  setDetailError("Could not remove key."),
-                )
-              }
-              className="shrink-0 rounded-lg p-1.5 text-danger transition-colors hover:bg-danger/10"
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-            </button>
-          )}
-        </div>
-      )}
-
-      {row.baseUrl && (
-        <div className="flex items-center gap-2">
-          <label className="w-24 shrink-0 font-mono text-xs text-muted-foreground">
-            {row.baseUrl.name.replace(/_(BASE_URL)/, " base URL")}
-          </label>
-          <input
-            value={urlDraft ?? row.baseUrl.value ?? ""}
-            onChange={(e) => setUrlDraft(e.target.value)}
-            placeholder="default endpoint"
-            aria-label={`${row.baseUrl.name}`}
-            className={inputClass}
-          />
-          {urlDraft !== null && (
-            <button
-              type="button"
-              onClick={() => void saveUrl()}
-              className="shrink-0 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground"
-            >
-              Save URL
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="w-24 shrink-0 font-mono text-xs text-muted-foreground">
-          Model
-        </span>
-        <input
-          value={modelDraft ?? row.override?.model ?? ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setModelDraft(value);
-            // Picking a listed model persists right away; free text waits
-            // for blur so typing isn't saved mid-word.
-            if (
-              models.includes(value) &&
-              value !== (row.override?.model ?? "")
-            ) {
-              onPatchOverride({ model: value });
-              setModelDraft(null);
-            }
-          }}
-          onBlur={() => {
-            if (
-              modelDraft !== null &&
-              modelDraft !== (row.override?.model ?? "")
-            ) {
-              onPatchOverride(
-                modelDraft.trim()
-                  ? { model: modelDraft.trim() }
-                  : { model: null },
-              );
-            }
-            setModelDraft(null);
-          }}
-          placeholder="server default"
-          list={`models-${row.name}`}
-          aria-label={`Model override for ${row.name}`}
-          className={inputClass}
-        />
-        <datalist id={`models-${row.name}`}>
-          {models.map((model) => (
-            <option key={model} value={model} />
-          ))}
-        </datalist>
-        {row.override ? (
-          <>
-            <button
-              type="button"
-              onClick={onRemoveOverride}
-              className="rounded-lg border border-border px-2 py-1 text-xs text-danger transition-colors hover:bg-danger/10"
-            >
-              Remove override
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPatchOverride({ enabled: true })}
-            className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Add override
-          </button>
-        )}
-      </div>
-
-      {detailError && (
-        <p role="alert" className="text-xs text-danger">
-          {detailError}
-        </p>
-      )}
-    </div>
   );
 }
