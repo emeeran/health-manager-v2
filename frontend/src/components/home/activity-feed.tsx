@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Activity, Clock, FileText } from "lucide-react";
 import { recordTypeMeta } from "../../lib/record-types";
 import type { DashboardSummary } from "../../lib/types/dashboard";
+import { formatDate } from "../../lib/utils";
 
 /** Recent records + upcoming reminders, newest first. */
 export function ActivityFeed({ summary }: { summary: DashboardSummary }) {
@@ -27,7 +28,7 @@ export function ActivityFeed({ summary }: { summary: DashboardSummary }) {
               <span className="min-w-0 flex-1 truncate">{reminder.title}</span>
               {reminder.remind_at && (
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {new Date(reminder.remind_at).toLocaleDateString()}
+                  {formatDate(reminder.remind_at)}
                 </span>
               )}
             </li>

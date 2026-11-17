@@ -20,7 +20,7 @@ import {
   setUserRole,
 } from "../../lib/api/household";
 import type { HouseholdRole, HouseholdUser } from "../../lib/types/household";
-import { INPUT_CLASS, errorMessage } from "../../lib/utils";
+import { INPUT_CLASS, errorMessage, formatDate } from "../../lib/utils";
 
 const ROLES: HouseholdRole[] = ["admin", "member", "viewer"];
 
@@ -288,7 +288,7 @@ function InvitesCard() {
             >
               <span className="flex-1">
                 {invitation.role} · expires{" "}
-                {new Date(invitation.expires_at).toLocaleDateString()}
+                {formatDate(invitation.expires_at)}
               </span>
               <button
                 type="button"
