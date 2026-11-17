@@ -19,10 +19,9 @@ import {
   listMessages,
   streamChatMessage,
 } from "../lib/api/chat";
-import { getVerification } from "../lib/api/ai";
+import { VerificationBadge } from "../components/verification-badge";
 import type { ChatMessage, ChatSource, Conversation } from "../lib/types/chat";
 import type { Member } from "../lib/types/member";
-import type { VerificationStatus } from "../lib/types/ai";
 import { INPUT_CLASS, cn } from "../lib/utils";
 
 export default function Chat() {
@@ -433,7 +432,7 @@ function MessageBubble({
               </span>
             )}
             {message.verification && (
-              <VerificationChip verification={message.verification} />
+              <VerificationBadge verification={message.verification} />
             )}
           </div>
           {message.verification?.id && (
@@ -506,51 +505,3 @@ function SourcesList({
   );
 }
 
-const VERIFICATION_LABELS: Record<VerificationStatus, string> = {
-  pending: "Verifying…",
-  passed: "AI-verified",
-  flagged: "AI flagged",
-  failed: "AI check failed",
-};
-
-const VERIFICATION_CLASSES: Record<VerificationStatus, string> = {
-  pending: "bg-muted text-muted-foreground",
-  passed: "bg-primary/10 text-primary",
-  flagged: "bg-warning/15 text-warning-foreground",
-  failed: "bg-danger/10 text-danger",
-};
-
-/**
- * Verification state of an assistant reply. While a fresh reply is still
- * pending, polls the verification endpoint every 3s until it settles.
- */
-function VerificationChip({
-  verification,
-}: {
-  verification: NonNullable<ChatMessage["verification"]>;
-}) {
-  // `id` only arrives on the freshly-completed message; stored history has
-  // status only, so nothing to poll there.
-  const { data } = useSWR(
-    verification.id && verification.status === "pending"
-      ? `/verifications/${verification.id}`
-      : null,
-    () => getVerification(verification.id!),
-    { refreshInterval: 3000 },
-  );
-  const status: VerificationStatus = data?.status ?? verification.status;
-  const settled = status !== "pending";
-
-  return (
-    <span
-      title={data?.notes ?? undefined}
-      className={cn(
-        "rounded-full px-2 py-0.5 text-xs font-medium",
-        VERIFICATION_CLASSES[status],
-      )}
-    >
-      {settled && status !== "passed" && <span aria-hidden>⚠ </span>}
-      {VERIFICATION_LABELS[status]}
-    </span>
-  );
-}

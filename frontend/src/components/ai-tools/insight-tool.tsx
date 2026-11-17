@@ -18,7 +18,7 @@ import { INPUT_CLASS } from "../../lib/utils";
 import { Markdown } from "../shared/markdown";
 import { A5NoteView } from "./a5-note-view";
 import { AuditPanel } from "../reports/audit-panel";
-import { VerificationBadge } from "../reports/verification-badge";
+import { VerificationBadge } from "../verification-badge";
 
 /**
  * One report-kind tool page body: shows the latest saved insight (with a
@@ -319,7 +319,9 @@ export function InsightView({ insight }: { insight: Insight }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {insight.verification_id && (
-          <VerificationBadge verificationId={insight.verification_id} />
+          <VerificationBadge
+            verification={{ id: insight.verification_id, status: "pending", notes: null }}
+          />
         )}
         {insight.provider_used && (
           <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">

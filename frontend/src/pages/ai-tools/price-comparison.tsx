@@ -1,5 +1,5 @@
 import { Loader2, Plus, Printer, Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { AiToolPage } from "../../components/ai-tools/ai-tool-page";
 import {
@@ -26,7 +26,7 @@ export default function PriceComparisonPage() {
 }
 
 function PriceTool({ memberId }: { memberId: string }) {
-  const [names, setNames] = useState<string[]>([]);
+  const [editedNames, setEditedNames] = useState<string[] | null>(null);
   const [draft, setDraft] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PriceCompareResponse | null>(null);
@@ -34,28 +34,26 @@ function PriceTool({ memberId }: { memberId: string }) {
 
   // Pre-fill with the member's active medicines (names only).
   const { data: meds } = useSWRMeds(memberId);
-  useEffect(() => {
-    if (meds?.length && !names.length) {
-      setNames(
-        [...new Set(meds.map((m) => m.medicine).filter(Boolean))].slice(0, 15),
-      );
-    }
-    // Only pre-fill once per member; user edits win afterwards.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meds]);
+  const prefilled = useMemo(
+    () =>
+      meds?.length
+        ? [...new Set(meds.map((m) => m.medicine).filter(Boolean))].slice(0, 15)
+        : null,
+    [meds],
+  );
+  // User edits win over the pre-fill once made.
+  const names = editedNames ?? prefilled ?? [];
 
   function addDraft() {
     const value = draft.trim();
     if (!value) return;
-    setNames((prev) =>
-      prev.length >= 15 ? prev : [...new Set([...prev, value])],
-    );
+    if (names.length < 15) setEditedNames([...new Set([...names, value])]);
     setDraft("");
     setResult(null);
   }
 
   function removeName(name: string) {
-    setNames((prev) => prev.filter((n) => n !== name));
+    setEditedNames(names.filter((n) => n !== name));
     setResult(null);
   }
 

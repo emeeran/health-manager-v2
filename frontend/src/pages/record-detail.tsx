@@ -31,6 +31,7 @@ import {
   downloadAttachment,
   uploadAttachments,
 } from "../lib/api/attachments";
+import { VerificationBadge } from "../components/verification-badge";
 import { CurrentMedicationsPrompt } from "../components/members/current-medications-prompt";
 import { ConfidentialityBadge } from "../components/records/confidentiality";
 import { TrackPrescriptionMeds } from "../components/records/track-prescription-meds";
@@ -929,9 +930,7 @@ function ExtractWithAi({
                 <span className="text-xs text-muted-foreground">
                   via {result.provider_used}
                 </span>
-                {verification && (
-                  <VerificationChip verification={verification} />
-                )}
+                {verification && <VerificationBadge verification={verification} />}
               </div>
 
               {result.summary && (
@@ -1032,44 +1031,6 @@ function StageList({
   );
 }
 
-function VerificationChip({ verification }: { verification: Verification }) {
-  switch (verification.status) {
-    case "passed":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="size-3.5" aria-hidden />
-          AI-verified
-        </span>
-      );
-    case "flagged":
-      return (
-        <span
-          title={verification.notes ?? undefined}
-          className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning"
-        >
-          <FileWarning className="size-3.5" aria-hidden />
-          Flagged: {verification.notes || "needs review"}
-        </span>
-      );
-    case "failed":
-      return (
-        <span
-          title={verification.notes ?? undefined}
-          className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-        >
-          <Circle className="size-3.5" aria-hidden />
-          Verification failed
-        </span>
-      );
-    default:
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" aria-hidden />
-          Verifying…
-        </span>
-      );
-  }
-}
 
 /** Clinical data sections that render as labelled rows when present. */
 const CLINICAL_SECTIONS = [

@@ -2,7 +2,7 @@ import { AiToolPage } from "../../components/ai-tools/ai-tool-page";
 import { InsightTool } from "../../components/ai-tools/insight-tool";
 import { listRecords } from "../../lib/api/records";
 import type { HealthRecord } from "../../lib/types/record";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 
 const selectClass =
@@ -31,12 +31,9 @@ function VisitSummaryTool({ memberId }: { memberId: string }) {
     ["records", "doctor_visit", memberId],
     () => listRecords(memberId, { record_type: "doctor_visit", limit: 50 }),
   );
-  // Default to the newest visit (listRecords returns newest-first) so the
-  // tool is usable immediately; the picker switches the summarized visit.
-  const [recordId, setRecordId] = useState("");
-  useEffect(() => {
-    if (visits?.length) setRecordId((current) => current || visits[0].id);
-  }, [visits]);
+  // Defaults to the newest visit (listRecords returns newest-first) so the
+  // tool is usable immediately; the picker overrides once a visit is chosen.
+  const [pickedId, setPickedId] = useState("");
 
   if (!visits) {
     return <p className="text-sm text-muted-foreground">Loading visits…</p>;
@@ -51,13 +48,15 @@ function VisitSummaryTool({ memberId }: { memberId: string }) {
     );
   }
 
+  const recordId = pickedId || visits[0].id;
+
   return (
     <div className="space-y-3">
       <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         Visit
         <select
           value={recordId}
-          onChange={(e) => setRecordId(e.target.value)}
+          onChange={(e) => setPickedId(e.target.value)}
           className={selectClass}
         >
           {visits.map((visit) => (
