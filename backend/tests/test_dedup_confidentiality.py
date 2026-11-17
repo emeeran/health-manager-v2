@@ -25,10 +25,11 @@ async def _create_record(
     summary: str = "Note",
     record_type: str = "doctor_visit",
     confidentiality: str | None = None,
+    record_date: str = "2026-05-01",
 ) -> dict:
     payload: dict = {
         "record_type": record_type,
-        "record_date": "2026-05-01",
+        "record_date": record_date,
         "summary": summary,
     }
     if clinical is not None:
@@ -67,8 +68,8 @@ async def test_content_hash_duplicate_detection_and_merge(auth_client):
     member_id = await _create_member(auth_client)
     clinical = {
         "_type": "structured",
-        "prescriptions": [
-            {"medicine": "Metformin", "dosage": "500 mg", "timing": "bid", "duration": "30d"}
+        "medications": [
+            {"name": "Metformin", "dosage": "500 mg", "timing": "bid", "duration_days": 30}
         ],
     }
     first = await _create_record(auth_client, member_id, clinical, summary="Original")
@@ -112,6 +113,37 @@ async def test_content_hash_duplicate_detection_and_merge(auth_client):
 
 
 @pytest.mark.asyncio
+async def test_similar_content_fires_on_live_clinical_format(auth_client):
+    """Medication/lab row keys drive similar_content — months apart, with
+    different summaries, content-similarity is the only viable signal."""
+    member_id = await _create_member(auth_client, "Similar")
+    clinical = {
+        "_type": "structured",
+        "medications": [
+            {"name": "Metformin", "dosage": "500 mg", "timing": "bid", "duration_days": 30},
+            {"name": "Sitagliptin", "dosage": "50 mg", "timing": "od", "duration_days": 30},
+        ],
+        "labs": [{"name": "HbA1c", "result": "7.1 %"}],
+    }
+    may = await _create_record(
+        auth_client, member_id, clinical, summary="May clinic", record_date="2026-05-01"
+    )
+    july = await _create_record(
+        auth_client, member_id, clinical, summary="July follow-up", record_date="2026-07-01"
+    )
+
+    dup = await auth_client.get(f"/api/v1/members/{member_id}/records/duplicates")
+    assert dup.status_code == 200, dup.text
+    match = next(
+        p
+        for p in dup.json()["pairs"]
+        if {p["primary_id"], p["duplicate_id"]} == {may["id"], july["id"]}
+    )
+    assert "similar_content" in match["reason"]
+    assert "same_type_adjacent_date" not in match["reason"]
+
+
+@pytest.mark.asyncio
 async def test_merge_is_idempotent_and_consolidates_attachments(auth_client, session_factory):
     from sqlalchemy import select
 
@@ -120,8 +152,8 @@ async def test_merge_is_idempotent_and_consolidates_attachments(auth_client, ses
     member_id = await _create_member(auth_client, "Mergey")
     clinical = {
         "_type": "structured",
-        "prescriptions": [
-            {"medicine": "Amlodipine", "dosage": "5 mg", "timing": "od", "duration": ""}
+        "medications": [
+            {"name": "Amlodipine", "dosage": "5 mg", "timing": "od", "duration_days": None}
         ],
     }
     primary = await _create_record(auth_client, member_id, clinical, summary="Keep")

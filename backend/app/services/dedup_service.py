@@ -82,8 +82,8 @@ def compute_content_hash(record_type, record_date, clinical_data) -> str:
 
 
 def _structured_lists(clinical_data: str | None) -> dict[str, set[tuple]]:
-    """Lowercased row-keys of prescriptions / labs inside clinical JSON."""
-    out: dict[str, set[tuple]] = {"prescriptions": set(), "labs": set()}
+    """Lowercased row-keys of medications / labs inside clinical JSON."""
+    out: dict[str, set[tuple]] = {"medications": set(), "labs": set()}
     if not clinical_data:
         return out
     try:
@@ -92,19 +92,19 @@ def _structured_lists(clinical_data: str | None) -> dict[str, set[tuple]]:
         return out
     if not isinstance(parsed, dict):
         return out
-    rx = parsed.get("prescriptions") or []
-    if isinstance(rx, list):
-        out["prescriptions"] = {
-            (str(r.get("medicine") or "").strip().lower(),)
-            for r in rx
-            if isinstance(r, dict) and r.get("medicine")
+    meds = parsed.get("medications") or []
+    if isinstance(meds, list):
+        out["medications"] = {
+            (str(m.get("name") or "").strip().lower(),)
+            for m in meds
+            if isinstance(m, dict) and m.get("name")
         }
-    tests = parsed.get("lab_results") or parsed.get("tests") or []
-    if isinstance(tests, list):
+    labs = parsed.get("labs") or []
+    if isinstance(labs, list):
         out["labs"] = {
-            (str(t.get("test_name") or "").strip().lower(),)
-            for t in tests
-            if isinstance(t, dict) and t.get("test_name")
+            (str(t.get("name") or "").strip().lower(),)
+            for t in labs
+            if isinstance(t, dict) and t.get("name")
         }
     return out
 
@@ -117,9 +117,9 @@ def _jaccard(a: set, b: set) -> float:
 
 
 def _union_clinical_data(keeper_raw: str | None, loser_raw: str | None) -> str | None:
-    """Union prescriptions/lab rows from the loser into the keeper's JSON.
+    """Union medication/lab rows from the loser into the keeper's JSON.
 
-    Rows dedupe on (medicine, dosage, timing, duration) / (test, result);
+    Rows dedupe on (name, dosage, timing, duration_days) / (name, result);
     returns None (keeper untouched) when either side isn't structured JSON.
     """
     try:
@@ -130,19 +130,19 @@ def _union_clinical_data(keeper_raw: str | None, loser_raw: str | None) -> str |
     if not isinstance(keeper, dict) or not isinstance(loser, dict):
         return None
 
-    def rx_key(rx: dict) -> tuple:
+    def med_key(med: dict) -> tuple:
         return tuple(
-            str(rx.get(k) or "").lower() for k in ("medicine", "dosage", "timing", "duration")
+            str(med.get(k) or "").lower()
+            for k in ("name", "dosage", "timing", "duration_days")
         )
 
-    def lab_key(t: dict) -> tuple:
-        return tuple(str(t.get(k) or "").lower() for k in ("test_name", "result"))
+    def lab_key(lab: dict) -> tuple:
+        return tuple(str(lab.get(k) or "").lower() for k in ("name", "result"))
 
     changed = False
     for list_key, key_fn in (
-        ("prescriptions", rx_key),
-        ("lab_results", lab_key),
-        ("tests", lab_key),
+        ("medications", med_key),
+        ("labs", lab_key),
     ):
         loser_items = loser.get(list_key)
         if not isinstance(loser_items, list) or not loser_items:
@@ -228,8 +228,8 @@ class DedupService:
                         _add(a, b, "same_type_adjacent_date", 1)
                 if (
                     _jaccard(
-                        structured[a.id]["prescriptions"],
-                        structured[b.id]["prescriptions"],
+                        structured[a.id]["medications"],
+                        structured[b.id]["medications"],
                     )
                     >= CONTENT_SIMILARITY_THRESHOLD
                     or _jaccard(structured[a.id]["labs"], structured[b.id]["labs"])
