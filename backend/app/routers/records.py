@@ -24,7 +24,13 @@ from app.schemas.record import (
     RecordResponse,
     RecordUpdate,
 )
-from app.services.dedup_service import DedupService, compute_content_hash
+from app.services.dedup_service import (
+    AlreadyMergedError,
+    DedupService,
+    RecordNotFoundError,
+    SelfMergeError,
+    compute_content_hash,
+)
 from app.services.extraction_apply import (
     normalize_clinical_data,
     persist_clinical_data,
@@ -415,13 +421,12 @@ async def merge_record(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
     try:
         merged = await DedupService(db).merge_duplicate(member_id, record.id, body.duplicate_of_id)
-    except ValueError as exc:
-        message = str(exc)
-        if "itself" in message:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, message) from exc
-        if "already merged into another" in message:
-            raise HTTPException(status.HTTP_409_CONFLICT, message) from exc
-        raise HTTPException(status.HTTP_404_NOT_FOUND, message) from exc
+    except SelfMergeError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    except AlreadyMergedError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except RecordNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return _to_response(merged, await _provider_name(merged, user, db))
 
 

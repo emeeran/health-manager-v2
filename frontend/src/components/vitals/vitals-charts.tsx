@@ -87,7 +87,7 @@ function bpDomain(vitals: Vital[], ranges?: ReferenceRanges): [number, number] {
   }
   if (ranges) {
     for (const band of ranges.blood_pressure.bands)
-      max = Math.max(max, band.max_systolic);
+      if (band.max_systolic != null) max = Math.max(max, band.max_systolic);
   }
   const top = Math.min(220, Math.ceil((max + 15) / 10) * 10);
   return [Math.max(40, top - 160), top];
@@ -123,8 +123,12 @@ function BloodPressureChart({
           {bands.map((band, index) => (
             <ReferenceArea
               key={band.label}
-              y1={index === 0 ? domainMin : bands[index - 1].max_systolic}
-              y2={band.max_systolic}
+              y1={
+                index === 0
+                  ? domainMin
+                  : (bands[index - 1].max_systolic ?? domainMax)
+              }
+              y2={band.max_systolic ?? domainMax}
               fill={bandColor(band.color_key, index)}
               fillOpacity={0.07}
               stroke="none"

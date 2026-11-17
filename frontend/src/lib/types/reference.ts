@@ -1,7 +1,8 @@
 export interface BloodPressureBand {
   label: string;
-  max_systolic: number;
-  max_diastolic: number;
+  /** Band ceiling; null for the open-ended hypertensive-crisis band. */
+  max_systolic: number | null;
+  max_diastolic: number | null;
   color_key: string;
   citation: string;
 }
@@ -36,11 +37,11 @@ export interface ReferenceRanges {
 const BAND_FALLBACKS = ["#16a34a", "#d97706", "#dc2626", "#991b1b"];
 
 export function bandColor(colorKey: string, index: number): string {
+  // color_key values come from backend reference_ranges.py (ok/warning/danger).
   const known: Record<string, string> = {
-    normal: "#16a34a",
-    elevated: "#d97706",
-    high: "#dc2626",
-    crisis: "#991b1b",
+    ok: "#16a34a",
+    warning: "#d97706",
+    danger: "#dc2626",
   };
   return known[colorKey] ?? BAND_FALLBACKS[index % BAND_FALLBACKS.length];
 }

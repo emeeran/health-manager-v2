@@ -38,6 +38,22 @@ from app.models import Attachment, HealthRecord
 
 logger = logging.getLogger(__name__)
 
+
+class MergeError(ValueError):
+    """Merge request cannot be fulfilled; subclasses map to HTTP statuses."""
+
+
+class SelfMergeError(MergeError):
+    """A record cannot be merged into itself (HTTP 400)."""
+
+
+class AlreadyMergedError(MergeError):
+    """Duplicate already merged into a different record (HTTP 409)."""
+
+
+class RecordNotFoundError(MergeError):
+    """Record missing or outside the member's scope (HTTP 404)."""
+
 DATE_PROXIMITY_DAYS = 3
 CONTENT_SIMILARITY_THRESHOLD = 0.5
 
@@ -241,11 +257,13 @@ class DedupService:
     ) -> HealthRecord:
         """Fold ``duplicate_id`` into ``primary_id``. Idempotent.
 
-        Raises ``ValueError`` when either record is missing/not in scope, or
-        when the duplicate was already merged into a *different* record.
+        Raises ``MergeError`` subclasses: ``SelfMergeError`` when the ids
+        match, ``RecordNotFoundError`` when either record is missing/not in
+        scope, ``AlreadyMergedError`` when the duplicate was already merged
+        into a *different* record.
         """
         if duplicate_id == primary_id:
-            raise ValueError("A record cannot be merged into itself")
+            raise SelfMergeError("A record cannot be merged into itself")
 
         primary = await self.db.get(HealthRecord, primary_id)
         duplicate = await self.db.get(HealthRecord, duplicate_id)
@@ -255,9 +273,9 @@ class DedupService:
             or primary.member_id != member_id
             or duplicate.member_id != member_id
         ):
-            raise ValueError("Record not found")
+            raise RecordNotFoundError("Record not found")
         if primary.is_deleted:
-            raise ValueError("Primary record is already merged away")
+            raise RecordNotFoundError("Primary record is already merged away")
 
         # Idempotency: merging an already-merged duplicate into the same
         # primary is a no-op (the merge's side effects are all idempotent
@@ -266,7 +284,9 @@ class DedupService:
         if duplicate.merged_into_id is not None or duplicate.is_deleted:
             if duplicate.merged_into_id == primary_id:
                 return primary
-            raise ValueError("Record was already merged into another record")
+            raise AlreadyMergedError(
+                "Record was already merged into another record"
+            )
 
         # Attachments move to the primary (rows keep their ids; the store
         # is content-addressable so shared file_paths are already safe).

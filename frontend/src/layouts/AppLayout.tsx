@@ -1,5 +1,4 @@
 import { Outlet } from "react-router-dom";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { Header } from "../components/layout/header";
 import { OfflineBanner } from "../components/layout/offline-banner";
 import { UpdateToast } from "../components/layout/update-toast";
@@ -18,7 +17,6 @@ export default function AppLayout() {
           <Header />
           <OfflineBanner />
           <UpdateToast />
-          <ErrorBanner />
           <main className="flex-1 overflow-y-auto p-6">
             <Outlet />
           </main>

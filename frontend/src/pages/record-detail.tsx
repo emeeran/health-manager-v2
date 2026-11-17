@@ -28,6 +28,7 @@ import {
   attachmentPageUrl,
   attachmentPreviewUrl,
   attachmentThumbnailUrl,
+  downloadAttachment,
   uploadAttachments,
 } from "../lib/api/attachments";
 import { CurrentMedicationsPrompt } from "../components/members/current-medications-prompt";
@@ -760,10 +761,7 @@ function ExtractWithAi({
         continue;
       }
       try {
-        const response = await fetch(attachmentDownloadUrl(attachment.id));
-        if (!response.ok)
-          throw new Error(`download failed (${response.status})`);
-        const blob = await response.blob();
+        const blob = await downloadAttachment(attachment.id);
         const file = new File([blob], attachment.original_name, {
           type: attachment.mime,
         });
