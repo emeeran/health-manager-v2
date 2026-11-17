@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { SWRConfig } from "swr";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../../lib/api-client";
-import AppLayout from "../../layouts/AppLayout";
+import AppLayout from "../../layouts/app-layout";
 import Home from "../home";
 
 interface MockResponseInit {

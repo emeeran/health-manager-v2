@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { SWRConfig } from "swr";
-import { ErrorBanner } from "./components/ErrorBanner";
+import { ErrorBanner } from "./components/error-banner";
 import { apiRequest, ApiError, isServerError } from "./lib/api-client";
 import { pushApiError } from "./lib/api-errors";
 import { router } from "./router";

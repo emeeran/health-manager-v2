@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
-import AppLayout from "./layouts/AppLayout";
+import AppLayout from "./layouts/app-layout";
 
 const Home = lazy(() => import("./pages/home"));
 const DataHygiene = lazy(() => import("./pages/data-hygiene"));

@@ -10,7 +10,7 @@ import {
 import { Link, useParams } from "react-router-dom";
 import useSWR from "swr";
 import QRCode from "react-qr-code";
-import { getEmergencyCard } from "../lib/api/member";
+import { getEmergencyCard } from "../lib/api/member-emergency";
 import { errorMessage } from "../lib/utils";
 
 function emergencyUrl(memberId: string): string {
