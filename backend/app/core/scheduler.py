@@ -14,7 +14,7 @@ from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from app.core.config import env_int, get_settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
@@ -91,7 +91,7 @@ def start_scheduler() -> AsyncIOScheduler | None:
     _scheduler.add_job(
         jobs.rotate_backups,
         "cron",
-        hour=env_int("BACKUP_ROTATE_HOUR", 6),
+        hour=get_settings().BACKUP_ROTATE_HOUR,
         minute=0,
         id="rotate_backups",
     )
@@ -101,45 +101,45 @@ def start_scheduler() -> AsyncIOScheduler | None:
     _scheduler.add_job(
         jobs.dispatch_web_push,
         "interval",
-        seconds=env_int("WEB_PUSH_DISPATCH_SECONDS", 300),
+        seconds=get_settings().WEB_PUSH_DISPATCH_SECONDS,
         id="dispatch_web_push",
     )
     _scheduler.add_job(
         jobs.check_ai_providers,
         "interval",
-        minutes=env_int("AI_PROVIDER_CHECK_MINUTES", 15),
+        minutes=get_settings().AI_PROVIDER_CHECK_MINUTES,
         id="check_ai_providers",
     )
     _scheduler.add_job(
         jobs.detect_anomalies,
         "interval",
-        hours=env_int("ANOMALY_SCAN_HOURS", 6),
+        hours=get_settings().ANOMALY_SCAN_HOURS,
         id="detect_anomalies",
     )
     _scheduler.add_job(
         jobs.cleanup_staging,
         "interval",
-        minutes=env_int("STAGING_CLEANUP_MINUTES", 60),
+        minutes=get_settings().STAGING_CLEANUP_MINUTES,
         id="cleanup_staging",
     )
     _scheduler.add_job(
         jobs.verify_file_integrity,
         "interval",
-        hours=env_int("INTEGRITY_CHECK_HOURS", 24),
+        hours=get_settings().INTEGRITY_CHECK_HOURS,
         id="verify_file_integrity",
     )
     # Self-gating: ticks hourly, checks the household schedule + last-run.
     _scheduler.add_job(
         jobs.backup_database,
         "interval",
-        minutes=env_int("BACKUP_TICK_MINUTES", 60),
+        minutes=get_settings().BACKUP_TICK_MINUTES,
         id="backup_database",
     )
     # Self-gating: ticks on a cadence, no-ops unless the Settings toggle is on.
     _scheduler.add_job(
         jobs.crawl_medicine_catalog,
         "interval",
-        minutes=env_int("MEDICINE_CRAWL_BATCH_MINUTES", 30),
+        minutes=get_settings().MEDICINE_CRAWL_BATCH_MINUTES,
         id="crawl_medicine_catalog",
     )
     # Self-gating: registered only when a dataset URL is configured; the job

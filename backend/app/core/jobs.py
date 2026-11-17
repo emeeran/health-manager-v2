@@ -14,7 +14,7 @@ from pathlib import Path
 
 from sqlalchemy import delete, select
 
-from app.core.config import env_int, get_settings
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.models import (
     Medication,
@@ -110,7 +110,7 @@ async def check_refill_alerts() -> int:
     from app.models import FamilyMember
     from app.services.notifications import create_notification
 
-    threshold_days = env_int("REFILL_ALERT_DAYS", 5)
+    threshold_days = get_settings().REFILL_ALERT_DAYS
     horizon = date.today() + timedelta(days=threshold_days)
     created = 0
     async with SessionLocal() as db:
@@ -230,7 +230,7 @@ async def detect_anomalies() -> int:
     from app.core.reference_ranges import GLUCOSE_RANGES, bp_stage
     from app.services.notifications import create_notification
 
-    window_days = env_int("ANOMALY_SCAN_DAYS", 7)
+    window_days = get_settings().ANOMALY_SCAN_DAYS
     cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=window_days)
     created = 0
     async with SessionLocal() as db:
@@ -351,7 +351,7 @@ async def cleanup_staging() -> int:
 
     from app.core.storage import storage_root
 
-    max_age_hours = env_int("STAGING_MAX_AGE_HOURS", 24)
+    max_age_hours = get_settings().STAGING_MAX_AGE_HOURS
     cutoff = time.time() - max_age_hours * 3600
     staging = storage_root().parent / "staging"
     candidates: list[Path] = []
@@ -387,7 +387,7 @@ async def verify_file_integrity() -> dict[str, int]:
     from app.core.storage import storage_root
     from app.models import Attachment
 
-    batch = env_int("INTEGRITY_BATCH", 25)
+    batch = get_settings().INTEGRITY_BATCH
     verified = 0
     failed = 0
     async with SessionLocal() as db:
@@ -487,7 +487,7 @@ async def run_backup_now() -> dict | None:
     created = datetime.now(UTC).isoformat()
     state = backup_service.read_backup_state()
     backup_service.write_backup_state({**state, "last_run": created, "last_archive": archive.name})
-    pruned = backup_service.prune_old_archives(env_int("BACKUP_RETENTION_DAYS", 30))
+    pruned = backup_service.prune_old_archives(get_settings().BACKUP_RETENTION_DAYS)
     try:
         size = archive.stat().st_size
     except OSError:
@@ -509,7 +509,7 @@ async def rotate_backups() -> int:
     """Daily: prune backup archives beyond the 30-day retention window."""
     from app.services import backup_service
 
-    pruned = backup_service.prune_old_archives(env_int("BACKUP_RETENTION_DAYS", 30))
+    pruned = backup_service.prune_old_archives(get_settings().BACKUP_RETENTION_DAYS)
     if pruned:
         logger.info("rotate_backups: pruned %s archive(s)", pruned)
     return pruned

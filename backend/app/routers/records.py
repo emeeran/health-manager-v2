@@ -199,19 +199,34 @@ async def create_record(
     )
 
 
+async def _require_scoped(
+    record: HealthRecord | None,
+    member_id: uuid.UUID,
+    user: User,
+    db: AsyncSession,
+    *,
+    allow_deleted: bool = False,
+) -> HealthRecord:
+    """404 unless the record exists, belongs to the member, is live (unless
+    ``allow_deleted`` — merge re-runs on soft-deleted duplicates are valid),
+    and sits at or below the caller's confidentiality ceiling. 404 rather
+    than 403 above the ceiling: existence itself is information a lower
+    role must not get."""
+    if (
+        record is None
+        or record.member_id != member_id
+        or (record.is_deleted and not allow_deleted)
+        or record.confidentiality_level not in await _visible_levels(user, db)
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
+    return record
+
+
 async def _get_record_scoped(
     member_id: uuid.UUID, record_id: uuid.UUID, user: User, db: AsyncSession
 ) -> HealthRecord:
     await get_scoped_member(member_id, user, db)
-    record = await db.get(HealthRecord, record_id)
-    if record is None or record.member_id != member_id or record.is_deleted:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
-    # Confidentiality ceiling: 404 (not 403) above the caller's role level —
-    # existence itself is information a lower role must not get.
-    levels = await _visible_levels(user, db)
-    if record.confidentiality_level not in levels:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
-    return record
+    return await _require_scoped(await db.get(HealthRecord, record_id), member_id, user, db)
 
 
 # NOTE: literal-path routes ("/duplicates") must register BEFORE
@@ -391,24 +406,17 @@ async def merge_record(
     Idempotent: re-merging into the same primary returns the primary
     unchanged; merging into a *different* primary is a 409.
     """
-    # NOTE: not _get_record_scoped — an already-merged duplicate must still
+    # NOTE: allow_deleted on both — an already-merged duplicate must still
     # reach DedupService.merge_duplicate so the re-merge is a no-op rather
-    # than a 404 (idempotency invariant).
+    # than a 404 (idempotency invariant); a merged-away primary is the
+    # service's RecordNotFoundError (404).
     await get_scoped_member(member_id, user, db)
-    record = await db.get(HealthRecord, record_id)
-    if (
-        record is None
-        or record.member_id != member_id
-        or record.confidentiality_level not in await _visible_levels(user, db)
-    ):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
-    primary = await db.get(HealthRecord, body.duplicate_of_id)
-    if (
-        primary is None
-        or primary.member_id != member_id
-        or primary.confidentiality_level not in await _visible_levels(user, db)
-    ):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
+    record = await _require_scoped(
+        await db.get(HealthRecord, record_id), member_id, user, db, allow_deleted=True
+    )
+    await _require_scoped(
+        await db.get(HealthRecord, body.duplicate_of_id), member_id, user, db, allow_deleted=True
+    )
     try:
         merged = await DedupService(db).merge_duplicate(member_id, record.id, body.duplicate_of_id)
     except SelfMergeError as exc:

@@ -6,7 +6,6 @@ ENCRYPTION_KEY so JWT-key rotation can never render encrypted data
 unrecoverable.
 """
 
-import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -94,6 +93,28 @@ class Settings(BaseSettings):
     # ── Scheduler ────────────────────────────────────────
     RUN_SCHEDULER: bool = True
     REMINDER_POLL_SECONDS: int = 60
+    BACKUP_ROTATE_HOUR: int = 6
+    WEB_PUSH_DISPATCH_SECONDS: int = 300
+    AI_PROVIDER_CHECK_MINUTES: int = 15
+    ANOMALY_SCAN_HOURS: int = 6
+    STAGING_CLEANUP_MINUTES: int = 60
+    INTEGRITY_CHECK_HOURS: int = 24
+    BACKUP_TICK_MINUTES: int = 60
+    MEDICINE_CRAWL_BATCH_MINUTES: int = 30
+
+    # ── Ops tuning ───────────────────────────────────────
+    REFILL_ALERT_DAYS: int = 5
+    ANOMALY_SCAN_DAYS: int = 7
+    STAGING_MAX_AGE_HOURS: int = 24
+    INTEGRITY_BATCH: int = 25
+    BACKUP_RETENTION_DAYS: int = 30
+    # Tiered payload cap: uploads (extract/attachments/backup) get v1's
+    # 500MB, general API JSON 50MB.
+    MAX_UPLOAD_SIZE_MB: int = 500
+    MAX_REQUEST_SIZE_MB: int = 50
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_GENERAL: int = 100
+    RATE_LIMIT_AUTH: int = 10
 
     # ── Web push (VAPID-gated; disabled without keys) ────
     WEB_PUSH_ENABLED: bool = False
@@ -147,11 +168,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-def env_int(name: str, default: int) -> int:
-    """Read an optional integer env var, falling back on unset/garbage."""
-    try:
-        return int(os.environ.get(name, ""))
-    except ValueError:
-        return default

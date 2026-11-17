@@ -36,7 +36,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from app.core.config import env_int, get_settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -261,8 +261,8 @@ def _size_limit_bytes(path: str) -> int:
     """Tiered payload cap: uploads (extract/attachments/backup) get v1's 500MB,
     general API JSON 50MB."""
     if "/records/extract" in path or path.startswith("/api/v1/backup"):
-        return env_int("MAX_UPLOAD_SIZE_MB", 500) * 1024 * 1024
-    return env_int("MAX_REQUEST_SIZE_MB", 50) * 1024 * 1024
+        return get_settings().MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    return get_settings().MAX_REQUEST_SIZE_MB * 1024 * 1024
 
 
 def configure_middleware(app: FastAPI, *, hsts: bool | None = None) -> None:
@@ -280,7 +280,7 @@ def configure_middleware(app: FastAPI, *, hsts: bool | None = None) -> None:
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     # Rate limiters live on app.state so tests can retune limits in place.
-    window = env_int("RATE_LIMIT_WINDOW_SECONDS", 60)
+    window = get_settings().RATE_LIMIT_WINDOW_SECONDS
     redis_url = os.environ.get("REDIS_URL", "")
     if redis_url:
         # Redis backend; both tiers degrade together if Redis is unreachable.
@@ -289,23 +289,23 @@ def configure_middleware(app: FastAPI, *, hsts: bool | None = None) -> None:
 
         app.state.general_rate_limiter = RedisSlidingWindowRateLimiter(
             redis_url,
-            env_int("RATE_LIMIT_GENERAL", 100),
+            get_settings().RATE_LIMIT_GENERAL,
             window,
             on_fallback=_mark_fallback,
         )
         app.state.auth_rate_limiter = RedisSlidingWindowRateLimiter(
             redis_url,
-            env_int("RATE_LIMIT_AUTH", 10),
+            get_settings().RATE_LIMIT_AUTH,
             window,
             on_fallback=_mark_fallback,
         )
         app.state.rate_limit_backend = "redis"
     else:
         app.state.general_rate_limiter = SlidingWindowRateLimiter(
-            env_int("RATE_LIMIT_GENERAL", 100), window
+            get_settings().RATE_LIMIT_GENERAL, window
         )
         app.state.auth_rate_limiter = SlidingWindowRateLimiter(
-            env_int("RATE_LIMIT_AUTH", 10), window
+            get_settings().RATE_LIMIT_AUTH, window
         )
         app.state.rate_limit_backend = "memory"
 
