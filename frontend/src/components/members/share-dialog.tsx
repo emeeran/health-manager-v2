@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { createShareLink, revokeShareLink } from "../../lib/api/share-links";
 import { useEscClose } from "../../hooks/use-esc-close";
 import type { ShareLinkCreated, ShareLinkSummary } from "../../lib/types/share";
+import { formatYearMonthDay } from "../../lib/utils";
 
 const EXPIRY_OPTIONS = [1, 7, 14, 30, 90] as const;
 
@@ -103,7 +104,7 @@ export function ShareDialog({
         {created ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              This link works until {formatDate(created.expires_at)} and shows{" "}
+              This link works until {formatYearMonthDay(created.expires_at)} and shows{" "}
               {memberName}'s medications, allergies and conditions — no sign-in
               needed.
             </p>
@@ -196,9 +197,9 @@ export function ShareDialog({
                   className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
                 >
                   <div className="text-sm">
-                    <p>Expires {formatDate(link.expires_at)}</p>
+                    <p>Expires {formatYearMonthDay(link.expires_at)}</p>
                     <p className="text-xs text-muted-foreground">
-                      Created {formatDate(link.created_at)}
+                      Created {formatYearMonthDay(link.created_at)}
                     </p>
                   </div>
                   <button
@@ -226,15 +227,4 @@ export function ShareDialog({
 
 function shareUrl(token: string): string {
   return `${window.location.origin}/public/share/${encodeURIComponent(token)}`;
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
 }

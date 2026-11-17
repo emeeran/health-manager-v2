@@ -2,6 +2,7 @@ import { Heart, Loader2 } from "lucide-react";
 import useSWR from "swr";
 import { getAdherenceToday } from "../../lib/api/adherence";
 import { getMember } from "../../lib/api/members";
+import { formatDate } from "../../lib/utils";
 import {
   SLOT_ORDER,
   doseTime,
@@ -10,33 +11,12 @@ import {
 } from "../../lib/types/adherence";
 import { SLOT_LABELS, type MedicationSlot } from "../../lib/types/medication";
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 /** Dose time → `08:30 AM`, without Date() timezone pitfalls. */
 function formatTime(scheduledTime: string): string {
   const [h, m] = doseTime(scheduledTime).split(":").map(Number);
   const suffix = h < 12 ? "AM" : "PM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
-}
-
-/** `YYYY-MM-DD` → `08 Sep 2026`. */
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return `${String(d).padStart(2, "0")} ${MONTHS[m - 1]} ${y}`;
 }
 
 function doseLabel(dose: ScheduledDose): string {

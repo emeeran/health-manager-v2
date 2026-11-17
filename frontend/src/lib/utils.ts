@@ -28,6 +28,18 @@ const YEAR_MONTH_DAY = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric",
 });
+const MONTH_DAY = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+});
+const FULL_DATE_TIME = new Intl.DateTimeFormat(undefined, {
+  weekday: "short",
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 /** "05 Jan 2026" — em-dash when absent, raw input when unparseable. */
 export function formatDate(iso: string | null): string {
@@ -40,4 +52,16 @@ export function formatDate(iso: string | null): string {
 export function formatYearMonthDay(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : YEAR_MONTH_DAY.format(date);
+}
+
+/** "5 Jan" — chart-axis labels; raw input when unparseable. */
+export function formatMonthDay(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : MONTH_DAY.format(date);
+}
+
+/** "Fri, 5 Jan 2026, 14:30" — raw input when unparseable. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : FULL_DATE_TIME.format(date);
 }

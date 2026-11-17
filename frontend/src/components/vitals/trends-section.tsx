@@ -14,7 +14,7 @@ import {
   type Vital,
   type VitalType,
 } from "../../lib/types/vital";
-import { INPUT_CLASS } from "../../lib/utils";
+import { INPUT_CLASS, formatYearMonthDay } from "../../lib/utils";
 
 const VitalsCharts = lazy(() => import("./vitals-charts"));
 
@@ -35,17 +35,6 @@ const TILE_TYPES = [
   "spo2",
   "hba1c",
 ] as const satisfies readonly VitalType[];
-
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : DATE_FORMAT.format(date);
-}
 
 function nowLocalInput(): string {
   const now = new Date();
@@ -245,7 +234,7 @@ function LatestTiles({
               {vital.vital_type === "blood_glucose" && vital.glucose_context
                 ? `${GLUCOSE_CONTEXT_LABELS[vital.glucose_context]} · `
                 : ""}
-              {formatDate(vital.measured_at)}
+              {formatYearMonthDay(vital.measured_at)}
             </p>
           </li>
         );

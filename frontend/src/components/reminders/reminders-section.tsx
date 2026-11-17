@@ -13,7 +13,7 @@ import {
   type Reminder,
   type ReminderRepeat,
 } from "../../lib/types/reminder";
-import { INPUT_CLASS, cn } from "../../lib/utils";
+import { INPUT_CLASS, cn, formatDateTime } from "../../lib/utils";
 
 /** `datetime-local` value for tomorrow at 09:00, in local time. */
 function tomorrowAtNine(): string {
@@ -172,20 +172,6 @@ export default function RemindersSection({ memberId }: { memberId: string }) {
 function isOverdue(remindAt: string): boolean {
   const due = new Date(remindAt).getTime();
   return !Number.isNaN(due) && due < Date.now();
-}
-
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
-  weekday: "short",
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : DATE_FORMAT.format(date);
 }
 
 function AddReminderForm({

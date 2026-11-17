@@ -16,6 +16,7 @@ import {
   type Vital,
 } from "../../lib/types/vital";
 import { bandColor, type ReferenceRanges } from "../../lib/types/reference";
+import { formatMonthDay } from "../../lib/utils";
 
 /**
  * Chart palette — `--primary` is read through the CSS theme; fixed hues are
@@ -45,16 +46,6 @@ const TOOLTIP_STYLE = {
   color: "var(--foreground)",
 } as const;
 
-const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-});
-
-function shortDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : DATE_FORMAT.format(date);
-}
-
 function byMeasuredAsc(a: Vital, b: Vital): number {
   return new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime();
 }
@@ -73,7 +64,7 @@ function buildBpPoints(vitals: Vital[]): BpPoint[] {
   return ofType(vitals, "blood_pressure")
     .sort(byMeasuredAsc)
     .map((vital) => ({
-      label: shortDate(vital.measured_at),
+      label: formatMonthDay(vital.measured_at),
       systolic: vital.value_num,
       diastolic: vital.value_secondary ?? 0,
     }));
@@ -170,7 +161,7 @@ function buildGlucosePoints(vitals: Vital[]): GlucosePoint[] {
   return ofType(vitals, "blood_glucose")
     .sort(byMeasuredAsc)
     .map((vital) => ({
-      label: shortDate(vital.measured_at),
+      label: formatMonthDay(vital.measured_at),
       ...(vital.glucose_context
         ? { [vital.glucose_context]: vital.value_num }
         : { random: vital.value_num }),
@@ -257,7 +248,7 @@ function AreaCard({ vitals, series }: { vitals: Vital[]; series: AreaSeries }) {
   const readings = ofType(vitals, series.type).sort(byMeasuredAsc);
   if (readings.length === 0) return null;
   const points = readings.map((vital) => ({
-    label: shortDate(vital.measured_at),
+    label: formatMonthDay(vital.measured_at),
     value: vital.value_num,
   }));
 
