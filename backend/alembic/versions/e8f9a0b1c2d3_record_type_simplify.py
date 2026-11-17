@@ -21,9 +21,9 @@ branch_labels = None
 depends_on = None
 
 _REMAP = (
-    ("('prescription', 'discharge_summary', 'imaging')", "doctor_visit"),
-    ("('lab_report',)", "lab_test"),
-    ("('vaccination',)", "other"),
+    (("prescription", "discharge_summary", "imaging"), "doctor_visit"),
+    (("lab_report",), "lab_test"),
+    (("vaccination",), "other"),
 )
 
 
@@ -42,10 +42,11 @@ def upgrade() -> None:
     if not _remapped(bind):
         return
     for sources, target in _REMAP:
+        values = ", ".join(f"'{value}'" for value in sources)
         bind.execute(
             sa.text(
                 f"UPDATE health_records SET record_type = '{target}', content_hash = NULL "
-                f"WHERE record_type IN {sources}"
+                f"WHERE record_type IN ({values})"
             )
         )
 

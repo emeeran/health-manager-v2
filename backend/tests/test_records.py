@@ -76,6 +76,55 @@ async def test_update_and_soft_delete(auth_client):
     assert listing == []
 
 
+async def test_bulk_delete_records(auth_client):
+    member_id = await _create_member(auth_client)
+    a = await _create_record(auth_client, member_id, record_date="2026-01-01")
+    b = await _create_record(auth_client, member_id, record_date="2026-02-01")
+    c = await _create_record(auth_client, member_id, record_date="2026-03-01")
+
+    resp = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/delete-many",
+        json={"record_ids": [a["id"], b["id"], "00000000-0000-0000-0000-000000000000"]},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "deleted": 2,
+        "not_found": ["00000000-0000-0000-0000-000000000000"],
+    }
+
+    listing = (await auth_client.get(f"/api/v1/members/{member_id}/records")).json()
+    assert [r["id"] for r in listing] == [c["id"]]
+
+    # Duplicate ids are deduplicated: a re-run reports everything as gone.
+    again = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/delete-many",
+        json={"record_ids": [a["id"], a["id"]]},
+    )
+    assert again.json() == {"deleted": 0, "not_found": [a["id"]]}
+
+
+async def test_bulk_delete_requires_ids_and_scopes_household(client):
+    await client.post(
+        "/api/v1/auth/register", json={"username": "owner1", "password": "Password1!"}
+    )
+    member_id = await _create_member(client)
+    resp = await client.post(
+        f"/api/v1/members/{member_id}/records/delete-many", json={"record_ids": []}
+    )
+    assert resp.status_code == 422  # empty batch rejected
+    record = await _create_record(client, member_id)
+    # user2's cookie jar — other household's id lands in not_found, not deleted.
+    await client.post(
+        "/api/v1/auth/register", json={"username": "owner2", "password": "Password1!"}
+    )
+    resp = await client.post(
+        f"/api/v1/members/{member_id}/records/delete-many",
+        json={"record_ids": [record["id"]]},
+    )
+    # Another household's member 404s at the scope guard, like every endpoint.
+    assert resp.status_code == 404
+
+
 async def test_count_endpoint(auth_client):
     member_id = await _create_member(auth_client)
     await _create_record(auth_client, member_id)

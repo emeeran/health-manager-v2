@@ -21,6 +21,39 @@ _NUM_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
 # Reference ranges like "70-100", "70 to 100", "4.0–10.0".
 _REF_RANGE_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(-?\d+(?:\.\d+)?)")
 
+# Sections whose entries must be structured objects; free-text found here is
+# advice mis-filed by an extractor and is moved to "advice".
+_OBJECT_SECTIONS = ("medications", "imaging", "screenings", "labs", "vitals")
+
+
+def normalize_clinical_data(data: dict) -> dict:
+    """Keep extracted sections homogeneous.
+
+    Extractors sometimes drop diet/lifestyle/follow-up instructions into
+    "medications" as bare strings (they aren't medicines), or omit sections
+    entirely. This moves string entries of object-typed sections into
+    "advice" and drops empty lists so the record page renders cleanly.
+    """
+    changed: dict = {}
+    misplaced: list[str] = []
+    for key, value in data.items():
+        if key in _OBJECT_SECTIONS and isinstance(value, list):
+            objects = [entry for entry in value if isinstance(entry, dict)]
+            strings = [entry for entry in value if isinstance(entry, str)]
+            if objects:
+                changed[key] = objects
+            misplaced.extend(strings)
+        elif isinstance(value, list):
+            if value:
+                changed[key] = value
+        else:
+            changed[key] = value
+    if misplaced:
+        advice = changed.get("advice")
+        advice_list = list(advice) if isinstance(advice, list) else []
+        changed["advice"] = [*advice_list, *misplaced]
+    return changed
+
 
 def _float(value) -> float | None:
     if value is None:

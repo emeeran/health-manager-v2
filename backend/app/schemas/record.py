@@ -48,6 +48,19 @@ class RecordMergeRequest(BaseModel):
     duplicate_of_id: uuid.UUID
 
 
+class RecordBulkDeleteRequest(BaseModel):
+    """Soft-delete many records of one member in a single call."""
+
+    record_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+
+
+class RecordBulkDeleteResponse(BaseModel):
+    deleted: int
+    # Ids that didn't match a visible record of this member (wrong household,
+    # already deleted, or above the caller's confidentiality ceiling).
+    not_found: list[uuid.UUID] = Field(default_factory=list)
+
+
 class AttachmentResponse(BaseModel):
     id: uuid.UUID
     file_path: str

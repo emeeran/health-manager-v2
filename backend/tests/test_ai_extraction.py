@@ -74,6 +74,21 @@ def test_merge_chunk_results_template_sections():
     assert [row["result"] for row in merged["labs"]] == ["7.8", "9.2"]
 
 
+def test_merge_chunk_results_optional_scalars():
+    """A model reply carrying the optional scalar fields (encounter_no,
+    ward, …) must merge, not KeyError — those keys were missing from the
+    seed dict and every extraction that mentioned them crashed."""
+    from app.services.ai.extraction import merge_chunk_results
+
+    merged = merge_chunk_results(
+        [{"encounter_no": "IP-2026-0042", "ward": "General", "phone": "555-0100"}]
+    )
+    assert merged["encounter_no"] == "IP-2026-0042"
+    assert merged["ward"] == "General"
+    assert merged["phone"] == "555-0100"
+    assert merged["insurance"] is None
+
+
 @pytest.fixture
 def patch_plan(monkeypatch):
     """Patch build_plan to return the given providers, capturing args."""
@@ -351,7 +366,7 @@ async def test_extraction_includes_consolidated_report(auth_client, patch_plan):
     ).json()
     report = body["clinical_data"]["consolidated_report"]
     assert isinstance(report, str) and report.strip()
-    report_prompts = [c["prompt"] for c in provider.calls if "CONSOLIDATED CLINICAL MEDICAL REPORT" in c["prompt"]]
+    report_prompts = [c["prompt"] for c in provider.calls if "CONSOLIDATED CLINICAL & SURGICAL MEDICAL REPORT" in c["prompt"]]
     assert report_prompts, "report pass never called the provider"
     assert "Metformin" in report_prompts[0], "report prompt should carry the clinical data"
 
@@ -360,7 +375,7 @@ class ReportExplodingProvider(FakeProvider):
     """Healthy for extraction, dead for the report pass."""
 
     async def complete(self, prompt: str, **kwargs) -> str:
-        if "CONSOLIDATED CLINICAL MEDICAL REPORT" in prompt:
+        if "CONSOLIDATED CLINICAL & SURGICAL MEDICAL REPORT" in prompt:
             raise RuntimeError("report pass down")
         return await super().complete(prompt, **kwargs)
 

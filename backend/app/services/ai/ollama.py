@@ -1,11 +1,11 @@
 """Local Ollama provider (/api/chat, OpenAI-ish but with image support)."""
 
+import base64
 import json
 
 import httpx
 
 from app.core.config import get_settings
-from app.services.ai.base import image_data_url
 
 
 class OllamaProvider:
@@ -105,7 +105,9 @@ class OllamaProvider:
             messages.append({"role": "system", "content": system})
         content: dict = {"role": "user", "content": prompt}
         if images:
-            content["images"] = [image_data_url(img) for img in images]
+            # Ollama's images field takes bare base64 — a data: URL is
+            # rejected with an opaque 400 before the model is even reached.
+            content["images"] = [base64.b64encode(img).decode() for img in images]
         messages.append(content)
         base_payload = {
             "model": self.model,

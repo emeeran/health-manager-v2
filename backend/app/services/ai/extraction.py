@@ -103,6 +103,11 @@ def merge_chunk_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         "patient": None,
         "clinical_history": None,
         "exam_findings": None,
+        "encounter_no": None,
+        "ward": None,
+        "address": None,
+        "phone": None,
+        "insurance": None,
         "medications": [],
         "imaging": [],
         "screenings": [],
@@ -127,6 +132,11 @@ def merge_chunk_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             "patient",
             "clinical_history",
             "exam_findings",
+            "encounter_no",
+            "ward",
+            "address",
+            "phone",
+            "insurance",
         ):
             if result.get(key) and not merged[key]:
                 merged[key] = result[key]
@@ -212,6 +222,15 @@ async def run_extraction(
     )
 
 
+def _short_provider_error(exc: Exception) -> str:
+    """One compact line per failed provider for the aggregate error — the
+    raw httpx message carries a URL and a docs link nobody debugging the
+    settings board needs."""
+    msg = str(exc).splitlines()[0]
+    msg = re.sub(r"\s*For more information.*$", "", msg).strip()
+    return msg or type(exc).__name__
+
+
 async def run_extraction_with_failover(
     data: bytes,
     mime: str,
@@ -223,27 +242,28 @@ async def run_extraction_with_failover(
     A provider that raises (400 for an unsupported request shape, 429 rate
     limit, timeout, dead key) is negative-cached via ``mark_unhealthy`` — so
     the next plan resolution skips it for the health TTL — and the next
-    provider in the plan is tried. Re-raises the last error when every
-    provider fails. ``result.provider_used`` reports who actually won.
+    provider in the plan is tried. When every provider fails, raises a
+    RuntimeError naming each provider's reason — the last error alone
+    blames the tail of the plan for a failure rooted earlier in it.
+    ``result.provider_used`` reports who actually won.
     """
     from app.services.ai import router as ai_router
 
     progress = progress or (lambda stage, message: None)
     if not plan:
         raise RuntimeError("No AI provider available")
-    last_exc: Exception | None = None
+    failures: list[str] = []
     for provider in plan:
         try:
             return await run_extraction(data, mime, provider, progress)
         except Exception as exc:  # noqa: BLE001 — any provider failure means "try next"
-            last_exc = exc
+            failures.append(f"{provider.name}: {_short_provider_error(exc)}")
             ai_router.mark_unhealthy(provider.name)
             logger.warning(
                 "extraction failed via %s: %s — trying next provider", provider.name, exc
             )
             progress("failover", f"{provider.name} failed — trying next provider")
-    assert last_exc is not None  # non-empty plan guarantees an error was recorded
-    raise last_exc
+    raise RuntimeError("all providers failed — " + "; ".join(failures))
 
 
 def strip_report_markdown(raw: str) -> str:
@@ -265,7 +285,7 @@ async def run_consolidated_report(
     progress: Callable[[str, str], Any] | None = None,
 ) -> str:
     """Second pass: restructure extracted clinical_data into the
-    consolidated-report markdown (prompts/template-1.md).
+    consolidated-report markdown (prompts/consolidated-report.md).
 
     Runs after a successful extraction and speaks to the same provider
     plan with the same failover semantics. Raises when every provider
@@ -276,7 +296,7 @@ async def run_consolidated_report(
     progress = progress or (lambda stage, message: None)
     if not plan:
         raise RuntimeError("No AI provider available")
-    template = load_prompt("template-1.md")
+    template = load_prompt("consolidated-report.md")
     content = json.dumps(
         {"report_date": date.today().isoformat(), "clinical_data": clinical_data},
         ensure_ascii=False,

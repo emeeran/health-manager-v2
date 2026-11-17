@@ -68,6 +68,22 @@ export function deleteRecord(
   );
 }
 
+export interface BulkDeleteResult {
+  deleted: number;
+  not_found: string[];
+}
+
+/** Soft-delete several records of one member in a single call. */
+export function deleteRecords(
+  memberId: string,
+  recordIds: string[],
+): Promise<BulkDeleteResult> {
+  return apiRequest<BulkDeleteResult>(
+    `/members/${encodeURIComponent(memberId)}/records/delete-many`,
+    { method: "POST", body: { record_ids: recordIds } },
+  );
+}
+
 /**
  * Look up existing records whose attachments share these filenames, so the UI
  * can warn before a likely-duplicate upload.

@@ -1,5 +1,6 @@
 """Provider adapters over httpx.MockTransport — no network."""
 
+import base64
 import json
 
 import httpx
@@ -99,12 +100,32 @@ async def test_ollama_complete_with_images(mock_http):
     out = await provider.complete("what is this?", images=[b"\xff\xd8\xffjpg"])
     assert out == "saw it"
     payload = json.loads(seen[0].content)
-    assert payload["messages"][0]["images"][0].startswith("data:image/jpeg;base64,")
+    # Ollama's images field takes bare base64 — a data: URL is rejected 400.
+    assert payload["messages"][0]["images"][0] == base64.b64encode(b"\xff\xd8\xffjpg").decode()
 
 
 async def test_ollama_available(monkeypatch, mock_http):
+    from app.core.config import get_settings
+
     monkeypatch.setattr(OllamaProvider, "base_url", "http://ollama.test", raising=False)
-    provider = OllamaProvider()
+    # Pin the model: available() matches against whatever OLLAMA_MODEL is
+    # configured (.env may point at any installed tag).
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen3:4b")
+    get_settings.cache_clear()
+    try:
+        provider = OllamaProvider()
+
+        mock_http(
+            lambda request: httpx.Response(
+                200, json={"models": [{"name": "qwen3:4b"}, {"name": "llama3"}]}
+            )
+        )
+        assert await provider.available() is True
+
+        mock_http(lambda request: httpx.Response(200, json={"models": []}))
+        assert await provider.available() is False
+    finally:
+        get_settings.cache_clear()
 
     mock_http(
         lambda request: httpx.Response(

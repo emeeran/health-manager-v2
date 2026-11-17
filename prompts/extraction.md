@@ -8,43 +8,53 @@ imaging, screenings, laboratory results, and a clinical summary.
 ## Output format
 
 Respond with ONE JSON object and nothing else — no prose, no markdown fences.
-The schema below shows the SHAPE only — fill every field with real values
-copied from the document, and use null ONLY for fields the document truly
-does not mention:
+The skeleton below shows the SHAPE only: every `"<...>"` placeholder and null
+marks a field you fill with a real value copied from the document. Never
+output placeholder text or example-like values — if the document doesn't
+state a field, use null (or an empty list):
 
 ```json
 {
-  "record_date": "2025-11-17",
-  "doctor_name": "Dr. A. Gajaraj, MD, DGO",
-  "facility": "MGM Healthcare, Chennai",
-  "patient": {"name": "J. Meeran", "age": "48 Years", "sex": "Female", "patient_id": "1316190"},
-  "clinical_history": "Lower abdominal pain x3 days, heavy menstrual bleeding, vaginal dryness; anemia since 2020",
-  "exam_findings": "BP 142/85, pulse 89, temp 99F; cervical ectopy, 1st degree uterine descent, uterus ~12 weeks size",
-  "diagnosis": "Fibroid uterus with HMB and iron deficiency anemia",
-  "summary": "2-5 sentence integrated clinical summary.",
+  "record_date": "<document date, YYYY-MM-DD>",
+  "doctor_name": "<from document>",
+  "facility": "<from document>",
+  "patient": {"name": "<from document>", "age": "<from document>", "sex": "<from document>", "patient_id": "<from document or null>", "dob": "<from document or null>", "blood_group": "<from document or null>"},
+  "encounter_no": "<from document or null>",
+  "ward": "<from document or null>",
+  "address": "<from document or null>",
+  "phone": "<from document or null>",
+  "insurance": "<from document or null>",
+  "clinical_history": "<from document>",
+  "exam_findings": "<from document or null>",
+  "diagnosis": "<from document>",
+  "summary": "<2-5 sentence integrated clinical summary written from the document>",
   "medications": [
-    {"name": "Inj. FCM (Ferric Carboxymaltose)", "dosage": "1gm in 250ml NS", "timing": "i.v. over 20 min, 3 doses 5 days apart", "duration_days": 15, "indication": "Severe iron deficiency anemia"}
+    {"name": "<from document>", "dosage": "<from document or null>", "timing": "<from document or null>", "duration_days": null, "indication": "<from document or null>"}
+  ],
+  "advice": [
+    "<from document>"
   ],
   "imaging": [
-    {"modality": "ultrasound", "region": "pelvis", "date": "2025-11-15", "findings": "Retroflexed uterus 10.0 x 6.9 x 7.6 cm, multiple FIGO-classified fibroids", "impression": "Fibroid uterus"}
+    {"modality": "<ultrasound|x-ray|CT|MRI|ECG|...>", "region": "<from document>", "date": "<from document or null>", "findings": "<from document>", "impression": "<from document or null>"}
   ],
   "screenings": [
-    {"type": "mammography", "date": "2025-11-15", "result": "Normal bilateral study", "grade": "BI-RADS 1"}
+    {"type": "<pap_smear|mammography|...>", "date": "<from document or null>", "result": "<from document>", "grade": "<formal grade or null>"}
   ],
   "labs": [
-    {"name": "Hemoglobin", "result": "7.8", "units": "g/dL", "reference": "12.0 - 15.0", "flag": "low", "date": "2025-11-15"}
+    {"name": "<from document>", "result": "<from document>", "units": "<from document or null>", "reference": "<from document or null>", "flag": "<low|high|normal|null>", "date": "<from document or null>"}
   ],
   "vitals": [
-    {"type": "blood_pressure", "value": 142, "value_secondary": 85, "unit": "mmHg", "glucose_context": null},
-    {"type": "blood_glucose", "value": 96, "value_secondary": null, "unit": "mg/dL", "glucose_context": "fasting"}
+    {"type": "blood_pressure", "value": null, "value_secondary": null, "unit": "mmHg", "glucose_context": null},
+    {"type": "blood_glucose", "value": null, "value_secondary": null, "unit": "mg/dL", "glucose_context": "<fasting|post_prandial|random>"}
   ]
 }
 ```
 
 ## Rules
 
-1. Copy values verbatim from the document — never invent or round numbers.
-   Fill every field the document supports; null only when truly absent.
+1. Copy values verbatim from the document — never invent, round, or reuse
+   any value shown in the skeleton above. Fill every field the document
+   supports; null only when truly absent.
 2. Omit sections that have no data (use empty lists / null), never guess.
 3. Blood pressure goes in ONE vitals entry: value = systolic, value_secondary = diastolic, unit = "mmHg".
 4. Blood glucose vitals: set "glucose_context" from the document —
@@ -64,6 +74,18 @@ does not mention:
    "screenings" with their formal grade/category, not "imaging".
 10. Medication "indication": the stated target condition (e.g. "Severe iron
    deficiency anemia"); null if the document doesn't say.
+11. Header facts (encounter_no, ward, address, phone, insurance, patient
+    dob, patient blood_group) come from the document header/letterhead —
+    null when the document doesn't state them.
+12. Anthropometry (height, weight, BMI) goes in "vitals" with types
+    "height", "weight", "bmi" and their units.
+13. ECG studies go in "imaging" with modality "ECG" — rate, intervals,
+    axes, and the conclusion in "findings".
+14. "medications" must contain EVERY drug, injection, or supplement the
+   document prescribes or administers — one entry per medicine, none skipped,
+   including inpatient/discharge tables and "as needed" items. Diet,
+   lifestyle, or follow-up instructions are NOT medications: put them in
+   "advice" as plain strings. Never put free text inside "medications".
 
 ## Document content
 

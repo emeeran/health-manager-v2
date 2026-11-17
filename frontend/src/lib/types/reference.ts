@@ -12,6 +12,13 @@ export interface GlucoseReferenceRange {
   unit: string;
 }
 
+export interface LabReferenceRange {
+  test_name: string;
+  normal_low: number;
+  normal_high: number;
+  unit: string;
+}
+
 export interface ReferenceRanges {
   blood_pressure: { bands: BloodPressureBand[] };
   blood_glucose: {
@@ -19,6 +26,7 @@ export interface ReferenceRanges {
     post_prandial: GlucoseReferenceRange;
     random: GlucoseReferenceRange;
   };
+  labs: Record<string, LabReferenceRange>;
 }
 
 /**

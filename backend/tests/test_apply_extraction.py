@@ -247,3 +247,42 @@ async def test_apply_extraction_keeps_glucose_context(auth_client):
         "fasting",
         "post_prandial",
     ]
+
+
+async def test_apply_extraction_rehomings_advice_misfiled_in_medications(auth_client):
+    """Diet/lifestyle text an extractor dropped into `medications` as bare
+    strings is moved to `advice`; the section keeps only real medicines."""
+    member_id = await _member(auth_client)
+    record = await _record(auth_client, member_id)
+
+    resp = await auth_client.post(
+        f"/api/v1/members/{member_id}/records/{record['id']}/apply-extraction",
+        json={
+            "clinical_data": {
+                "medications": [
+                    {
+                        "name": "Inj. FCM (Ferric Carboxymaltose)",
+                        "dosage": "1gm in 250ml NS",
+                        "timing": "i.v. over 20 min",
+                        "duration_days": 15,
+                        "indication": "Severe iron deficiency anemia",
+                    },
+                    "Cut down sugar, salt, fatty foods and soft drinks",
+                    "Eat complex carbohydrates and fibre rich diets",
+                ],
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    got = await auth_client.get(
+        f"/api/v1/members/{member_id}/records/{record['id']}"
+    )
+    clinical = got.json()["clinical_data"]
+    assert [m["name"] for m in clinical["medications"]] == [
+        "Inj. FCM (Ferric Carboxymaltose)"
+    ]
+    assert clinical["advice"] == [
+        "Cut down sugar, salt, fatty foods and soft drinks",
+        "Eat complex carbohydrates and fibre rich diets",
+    ]

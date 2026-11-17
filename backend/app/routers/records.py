@@ -17,13 +17,18 @@ from app.schemas.filename_check import (
 )
 from app.schemas.record import (
     ApplyExtraction,
+    RecordBulkDeleteRequest,
+    RecordBulkDeleteResponse,
     RecordCreate,
     RecordMergeRequest,
     RecordResponse,
     RecordUpdate,
 )
 from app.services.dedup_service import DedupService, compute_content_hash
-from app.services.extraction_apply import persist_clinical_data
+from app.services.extraction_apply import (
+    normalize_clinical_data,
+    persist_clinical_data,
+)
 from app.services.visit_link import apply_visit_autofill, find_linked_visit
 
 
@@ -155,6 +160,9 @@ async def create_record(
 ) -> RecordResponse:
     await get_scoped_member(member_id, user, db)
     await _validate_provider(member_id, body.provider_id, user, db)
+    clinical = (
+        normalize_clinical_data(body.clinical_data) if body.clinical_data else None
+    )
     record = HealthRecord(
         # Explicit id: the visit-link query below excludes this row by id,
         # and the column default only fires at INSERT — too late.
@@ -163,7 +171,7 @@ async def create_record(
         record_type=body.record_type.value,
         record_date=body.record_date,
         record_time=body.record_time,
-        clinical_data=json.dumps(body.clinical_data) if body.clinical_data else None,
+        clinical_data=json.dumps(clinical) if clinical else None,
         diagnosis=body.diagnosis,
         investigations=body.investigations,
         prescription_text=body.prescription_text,
@@ -173,8 +181,8 @@ async def create_record(
         tags=",".join(body.tags),
         confidentiality_level=body.confidentiality_level,
         content_hash=(
-            compute_content_hash(body.record_type.value, body.record_date, body.clinical_data)
-            if body.clinical_data
+            compute_content_hash(body.record_type.value, body.record_date, clinical)
+            if clinical
             else None
         ),
     )
@@ -245,7 +253,11 @@ async def update_record(
     record = await _get_record_scoped(member_id, record_id, user, db)
     data = body.model_dump(exclude_unset=True)
     if "clinical_data" in data:
-        data["clinical_data"] = json.dumps(data["clinical_data"]) if data["clinical_data"] else None
+        data["clinical_data"] = (
+            json.dumps(normalize_clinical_data(data["clinical_data"]))
+            if data["clinical_data"]
+            else None
+        )
     if "tags" in data and data["tags"] is not None:
         data["tags"] = ",".join(data["tags"])
     if "provider_id" in data:
@@ -299,19 +311,22 @@ async def apply_extraction_to_record(
             existing = json.loads(record.clinical_data)
         except ValueError:
             existing = {}
+    # Advice mis-filed into object sections (diet text under medications…)
+    # is rehomed before merging so stored data stays homogeneous.
+    normalized = normalize_clinical_data(body.clinical_data)
     merged = dict(existing)
-    for key, value in body.clinical_data.items():
+    for key, value in normalized.items():
         # Empty sections don't clobber what earlier documents contributed.
         if value is None or value == [] or value == "":
             continue
         merged[key] = value
     record.clinical_data = json.dumps(merged)
     labs_created, vitals_created = await persist_clinical_data(
-        db, member_id, record.id, record.record_date, body.clinical_data
+        db, member_id, record.id, record.record_date, normalized
     )
     # Content-addressing: the clinical payload is a hash input.
     record.content_hash = compute_content_hash(
-        record.record_type, record.record_date, body.clinical_data
+        record.record_type, record.record_date, normalized
     )
     await db.flush()
     return {
@@ -319,6 +334,40 @@ async def apply_extraction_to_record(
         "labs_created": labs_created,
         "vitals_created": vitals_created,
     }
+
+
+@router.post("/delete-many", response_model=RecordBulkDeleteResponse)
+async def delete_many_records(
+    member_id: uuid.UUID,
+    body: RecordBulkDeleteRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RecordBulkDeleteResponse:
+    """Soft-delete a batch of the member's records in one call.
+
+    Ids that don't resolve to a visible record of this member (wrong
+    household, already deleted, or above the caller's confidentiality
+    ceiling) are reported back instead of failing the whole batch.
+    """
+    await get_scoped_member(member_id, user, db)
+    unique_ids = list(dict.fromkeys(body.record_ids))
+    rows = await db.scalars(
+        select(HealthRecord).where(
+            HealthRecord.member_id == member_id,
+            HealthRecord.id.in_(unique_ids),
+            HealthRecord.is_deleted.is_(False),
+            HealthRecord.confidentiality_level.in_(await _visible_levels(user, db)),
+        )
+    )
+    records = list(rows)
+    for record in records:
+        record.is_deleted = True  # soft delete — keeps timeline history auditable
+    await db.flush()
+    found = {record.id for record in records}
+    return RecordBulkDeleteResponse(
+        deleted=len(records),
+        not_found=[rid for rid in unique_ids if rid not in found],
+    )
 
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -109,7 +109,7 @@ export default function TrendsSection({ memberId }: { memberId: string }) {
         </div>
       </div>
 
-      <LatestTiles vitals={latest} />
+      <LatestTiles vitals={latest} ranges={ranges} />
       <LogReadingForm
         memberId={memberId}
         onLogged={() => void handleLogged()}
@@ -167,7 +167,42 @@ function formatTileValue(vital: Vital): string {
   }
 }
 
-function LatestTiles({ vitals }: { vitals?: Vital[] }) {
+type RangeFlag = "high" | "low" | null;
+
+/** Out-of-range flag for a tile, per the reading's glucose context (ADA bands). */
+function glucoseFlag(vital: Vital, ranges?: ReferenceRanges): RangeFlag {
+  if (!ranges || vital.vital_type !== "blood_glucose") return null;
+  const band = ranges.blood_glucose[vital.glucose_context ?? "random"];
+  if (!band) return null;
+  if (vital.value_num > band.normal_high) return "high";
+  if (vital.value_num < band.normal_low) return "low";
+  return null;
+}
+
+const HBA1C_NORMAL_HIGH = 5.6; // ADA — mirrors backend labs.hba1c range
+
+function hba1cFlag(vital: Vital, ranges?: ReferenceRanges): RangeFlag {
+  if (!ranges || vital.vital_type !== "hba1c") return null;
+  const band = ranges.labs?.hba1c;
+  const high = band?.normal_high ?? HBA1C_NORMAL_HIGH;
+  const low = band?.normal_low ?? 4;
+  if (vital.value_num > high) return "high";
+  if (vital.value_num < low) return "low";
+  return null;
+}
+
+const FLAG_META: Record<"high" | "low", string> = {
+  high: "High",
+  low: "Low",
+};
+
+function LatestTiles({
+  vitals,
+  ranges,
+}: {
+  vitals?: Vital[];
+  ranges?: ReferenceRanges;
+}) {
   if (!vitals || vitals.length === 0) return null;
   const byType = new Map<VitalType, Vital>();
   for (const vital of sortByMeasuredDesc(vitals)) {
@@ -182,25 +217,39 @@ function LatestTiles({ vitals }: { vitals?: Vital[] }) {
 
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      {tiles.map(({ type, vital }) => (
-        <li
-          key={type}
-          className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm"
-        >
-          <p className="text-xs font-medium text-muted-foreground">
-            {TILE_META[type].label}
-          </p>
-          <p className="mt-0.5 truncate text-lg font-semibold tracking-tight">
-            {formatTileValue(vital)}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {vital.vital_type === "blood_glucose" && vital.glucose_context
-              ? `${GLUCOSE_CONTEXT_LABELS[vital.glucose_context]} · `
-              : ""}
-            {formatDate(vital.measured_at)}
-          </p>
-        </li>
-      ))}
+      {tiles.map(({ type, vital }) => {
+        const flag = glucoseFlag(vital, ranges) ?? hba1cFlag(vital, ranges);
+        return (
+          <li
+            key={type}
+            className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm"
+          >
+            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              {TILE_META[type].label}
+              {flag && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    flag === "high"
+                      ? "bg-danger/15 text-danger"
+                      : "bg-warning/20 text-warning-foreground"
+                  }`}
+                >
+                  {FLAG_META[flag]}
+                </span>
+              )}
+            </p>
+            <p className="mt-0.5 truncate text-lg font-semibold tracking-tight">
+              {formatTileValue(vital)}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {vital.vital_type === "blood_glucose" && vital.glucose_context
+                ? `${GLUCOSE_CONTEXT_LABELS[vital.glucose_context]} · `
+                : ""}
+              {formatDate(vital.measured_at)}
+            </p>
+          </li>
+        );
+      })}
     </ul>
   );
 }

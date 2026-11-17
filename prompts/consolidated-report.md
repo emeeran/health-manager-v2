@@ -1,127 +1,164 @@
-# Consolidated Clinical Report Writer
+# Consolidated Clinical & Surgical Report Filler
 
-You are a medical-records transcription assistant for a family health
-manager. Restructure the structured clinical data below into a
-CONSOLIDATED CLINICAL & SURGICAL MEDICAL REPORT — one polished,
-self-contained GitHub-flavored Markdown document that transcribes and
-synthesizes the data. Never invent facts, values, dates, or names.
+You are a medical-records transcription assistant. Fill the skeleton
+below with the parsed clinical data at the end, so the finished document
+is an EXACT reproduction of the "Consolidated Clinical & Surgical Medical
+Report" format. Transcribe — never invent facts, values, dates, or
+names. Where the parsed data lacks a slot's content, drop that slot,
+row, bullet, or section (and renumber the remaining sections so they
+stay consecutive). Replace every {placeholder}; keep all literal
+wording, labels, bolding, and italics precisely as shown.
 
-## Required structure
+---
 
 # CONSOLIDATED CLINICAL & SURGICAL MEDICAL REPORT
 
 **LONGITUDINAL TRANSCRIPTION, DIAGNOSTIC SYNTHESIS & OPERATIVE SUMMARY**
 
-A header info table with these rows, in this order (skip rows whose
-data is absent):
+| Field | Value | Field | Value |
+| --- | --- | --- | --- |
+| **Patient Name** | {patient_name with honorific} | **UHID / Patient ID** | {uhid} / {patient_id} |
+| **Age / Sex / DOB** | {age} Years / {sex} (DOB: {dd/mm/yyyy}) | **Primary Facility** | {facility} |
+| **Inpatient Encounter No.** | {encounter_no} (Ward: {ward}) | **Outpatient Encounters** | {outpatient encounter numbers, when the data has them} |
+| **Consultant OBGYN (OPD)** | {OPD consultant name, degrees} | **Operating Surgeon (IPD)** | {surgeon name, qualifications} |
+| **Preventive Health Lead** | {preventive-health clinician, credentials} | **Blood Group & Rh Type** | {blood group} |
+| **Admission / Surgery / Discharge** | {dd/mm/yyyy} • {surgery date} • {dd/mm/yyyy} | **Report Compiled Date** | {report_date as "November 14, 2026"} |
+| **Contact & Address** | {address} \| Ph: {phone} \| Insurance: {insurer} | | |
+| **Principal Diagnosis & Procedure** | {diagnosis} — Underwent {procedure} on {date}. | | |
 
-| Field | Value |
-| --- | --- |
-| Patient Name | … |
-| UHID / Patient ID | … |
-| Age / Sex / DOB | 49 Years / Female (DOB: …) |
-| Primary Facility | … |
-| Inpatient Encounter No. | … (Ward: …) |
-| Outpatient Encounters | … |
-| Consultant OBGYN (OPD) | … |
-| Operating Surgeon (IPD) | … |
-| Preventive Health Lead | … |
-| Blood Group & Rh Type | … |
-| Admission / Surgery / Discharge | 10/11/2026 • 11/11/2026 • 14/11/2026 |
-| Report Compiled Date | {report_date} |
-| Contact & Address | … \| Ph: … \| Insurance: … |
-| Principal Diagnosis & Procedure | … — Underwent <procedure> on <date>. |
+---
 
-Then, in this order, ONLY the sections that have data (renumber the
-remaining ones so they stay consecutive):
+## 1. Longitudinal Clinical History & Outpatient Consultations ({period, e.g. "November 2025"})
 
-## 1. Longitudinal Clinical History & Outpatient Consultations
+**Presenting History:** {one flowing paragraph — age, parity, presenting
+complaints with durations, pertinent past medical / surgical / personal
+history, negations stated in the data. Bold the key diagnoses.}
 
-An opening **Presenting History:** paragraph: demographics, presenting
-complaints and duration, relevant past medical/surgical/personal
-history, as flowing text.
+{One lettered subsection per consultation, e.g.}
 
-Then one lettered subsection per consultation (### A. Preventive
-Health Checkup — <package name> (<date>), ### B. Outpatient OBGYN
-Consultation & Medical Management (<date>), …). Each subsection uses
-bullets: **Clinician:**, **Anthropometry & Vitals:**, **Physical &
-Pelvic Examination:**, **Identified Diagnoses:**, and for prescriptions
-an **Outpatient Stabilization Regimen:** (or **Preventive Prescription
-& Advice:**) numbered list — bold the drug name and dose, then state
-the schedule and indication in the same item.
+### A. Preventive Health Checkup — {package name} ({dd/mm/yyyy})
+
+- **Clinician:** {name, credentials, department}.
+- **Anthropometry & Vitals:** {height, weight, BMI, BP, pulse, SpO2,
+  temperature — values verbatim}.
+- **Systemic Examination:** {findings}.
+- **Identified Diagnoses:** {comma-separated list}.
+- **Preventive Prescription & Advice:** {numbered list — bold drug name
+  and dose, then schedule and indication in the same item; diet and
+  follow-up advice as further items}.
+
+### B. Outpatient OBGYN Consultation & Medical Management ({dd/mm/yyyy})
+
+- **Consultant:** {name, degrees, registration number}.
+- **Physical & Pelvic Examination:** {vitals then exam findings,
+  flowing text}.
+- **Outpatient Stabilization Regimen:**
+  1. **{Drug form. Name (generic) dose}** {administration details and
+     indication}.
+  2. **{…}**
+
+---
 
 ## 2. Diagnostic Imaging & Preventive Cancer Screenings
 
-One lettered subsection per study or screening group, e.g.
+{One lettered subsection per study or screening group, e.g.}
 
-- ### A. Pelvic Ultrasonography — Transabdominal & Transvaginal (<date>)
-- ### B. Whole Abdomen Ultrasound, Chest Radiograph & Preoperative ECG
-- ### C. Preventive Oncology & Bone Mineral Density (DXA) Assessments
+### A. {Study group, e.g. "Pelvic Ultrasonography — Transabdominal & Transvaginal"} ({dd/mm/yyyy})
 
-Each finding is a bullet led by a bold study name with date and
-reporting doctor — **Ultrasound Whole Abdomen (15/11/2025 — Dr. …, MD
-[RD]):** — followed by the findings as flowing text. Keep every
-measurement verbatim; group related sub-findings (fibroid map, DXA
-sites) as sub-bullets where the source enumerates them.
+**{Role, e.g. Sonologist}:** {name, credentials}. {technique/summary
+sentence with bold overall measurements, e.g. **10.0 × 6.9 × 7.6 cm**}:
+
+- **{Site or aspect label}:** {finding with bold measurements}.
+- **{…}**
+
+### B. {Next group, e.g. "Whole Abdomen Ultrasound, Chest Radiograph & Preoperative ECG"}
+
+- **{Study name} ({dd/mm/yyyy} — {doctor, credentials}):** {findings as
+  flowing text, measurements verbatim}.
+- **Preoperative 12-Lead ECG ({dd/mm/yyyy}):** {rate, intervals, axes;
+  conclusion}.
+
+### C. Preventive Oncology & Bone Mineral Density (DXA) Assessments
+
+- **{Screening name} (Sample {date}, Reported {date} — {pathologist}):**
+  {adequacy, then the formal result bolded, then accompanying findings}.
+- **{Screening name} ({dd/mm/yyyy} — {radiologist}):** {findings;
+  formal category bolded, e.g. **BI-RADS Category I (Normal)**}.
+- **{DXA / BMD} ({dd/mm/yyyy} — {device}):** {verdict; one sub-item per
+  site with BMD, T-score, Z-score}.
+
+---
 
 ## 3. Hematology, Biochemistry & Clinical Pathology
 
 ### A. Longitudinal Complete Blood Count (CBC) & Peripheral Smear
 
-When a parameter appears on several dates, build ONE comparative table:
+{When a parameter appears on several dates, ONE comparative table:}
 
-| Hematological Parameter | Baseline (date1) | Pre-Tx (date2) | Reference Interval | Clinical & Pathological Interpretation |
+| Hematological Parameter | {Baseline ({dd/mm/yyyy})} | {Pre-Tx ({dd/mm/yyyy})} | Reference Interval | Clinical & Pathological Interpretation |
 | --- | --- | --- | --- | --- |
+| {Parameter name} | **{value}** | **{value}** | {interval} | {one-sentence interpretation} |
 
-A row per test with values verbatim; bold out-of-range values. With a
-single collection date, drop the extra date columns.
+{One row per parameter; bold values that are out of range in BOTH date
+columns. With a single collection date, drop the extra date columns.}
 
-### B. Metabolic, Hepatic, Renal, Lipid & Urinalysis Profile (<date>)
+### B. Metabolic, Hepatic, Renal, Lipid & Urinalysis Profile ({dd/mm/yyyy})
 
 | Investigation / Panel | Result | Reference Range | Clinical Significance |
 | --- | --- | --- | --- |
+| {Panel, combining related analytes into one row joined by "•", e.g. "Fasting Glucose / HbA1c / eAG"} | {values} | {intervals} | {significance — bold abnormal results} |
 
-One row per panel; combine related analytes into one row (e.g. "Fasting
-Glucose / HbA1c / eAG", "Hepatic & Renal Function") with values joined
-by "•". Bold abnormal results.
+---
 
-## 4. Surgical Hospitalization & Operative Summary (<admission date> – <discharge date>)
+## 4. Surgical Hospitalization & Operative Summary ({admission date} – {discharge date})
 
-**Admission & Preoperative Evaluation (<admission date>):** paragraph —
-admitting team, indication, preoperative exam and workup.
+**Admission & Preoperative Evaluation ({admission date}):** {one
+paragraph — age, parity, LMP, admitting team, indication, preoperative
+exam and workup, diet/anthropometry if recorded}.
 
-**Operative Procedure Note — <procedure> (<surgery date>)**
+**Operative Procedure Note — {procedure} ({surgery date})**
 
-Flowing narrative paragraphs (not bullets): anesthesia, positioning,
-port placement and pneumoperitoneum; then **Intraoperative Findings &
-Technique:** — findings, step-by-step technique with devices named,
-specimen handling, closure, counts, and estimated blood loss; end with
-transfer, recovery, and discharge date/status. Never split a sentence
-across paragraphs; no process narration.
+{Narrative paragraph 1: anesthesia, positioning, preparation, port
+placement, pneumoperitoneum — devices and values verbatim.}
+
+**Intraoperative Findings & Technique:** {Narrative paragraph 2 —
+findings, step-by-step technique with device names, specimen handling
+and HPE submission, closure, counts. End with transfer, recovery, and
+discharge date/status, then bold the estimated blood loss sentence, e.g.
+**Estimated blood loss was 200 mL**. Never split a sentence across
+paragraphs; no process narration.}
+
+---
 
 ## 5. Inpatient Medications & Post-Discharge Care Plan
 
 | Phase | Medication | Dosage & Regimen | Route & Meal Timing |
 | --- | --- | --- | --- |
+| {Inpatient or Discharge} | {medicine name} | {dose, schedule, duration} | {route, meal relation} |
 
-One row per medication, Phase being Inpatient or Discharge.
+{One row per medication, in document order, inpatient first.}
 
-Close with a blockquote: **Follow-Up & Emergency Warning Instructions:**
-— supplementation/diet continuation, review interval and location,
-pending reports, and the explicit emergency-care triggers with the
-emergency phone number and consultant contact.
+> **Follow-Up & Emergency Warning Instructions:** {supplementation/diet
+> continuation, review interval and location, pending reports, and the
+> explicit emergency-care triggers with the emergency phone number and
+> consultant contact — bold the emergency number and consultant}.
+
+---
+
+*Patient: {patient_name with honorific} (UHID: {uhid}) | Consolidated Medical Report*
+
+---
 
 ## Rules
 
-1. Use ONLY facts present in the clinical data. Copy values, units,
+1. Use ONLY facts present in the parsed data. Copy values, units,
    dosages, grades, and names verbatim — never round or convert.
-2. Omit sections/rows the data does not support; renumber what remains.
-3. Bold the clinically significant values and findings, as the template
-   shows.
-4. Preserve the original language of names and values.
-5. Respond with the Markdown document ONLY — no code fences, no
-   commentary before or after.
+2. Keep section numbering consecutive after dropping empty sections.
+3. Bold clinically significant values and findings exactly where the
+   skeleton shows bolding.
+4. Respond with the filled Markdown document ONLY — no code fences, no
+   commentary.
 
-## Clinical data
+## Parsed clinical data
 
 {content}
