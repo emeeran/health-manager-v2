@@ -1,28 +1,19 @@
-import {
-  BookOpen,
-  Loader2,
-  MessageCircle,
-  MessageSquarePlus,
-  PanelRight,
-  Send,
-  Trash2,
-} from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { Markdown } from "../components/shared/markdown";
 import useSWR, { mutate as globalMutate } from "swr";
+import { ChatComposer } from "../components/chat/chat-composer";
 import { CompendiumLookup } from "../components/chat/compendium-lookup";
-import { AuditPanel } from "../components/reports/audit-panel";
+import { MessageBubble } from "../components/chat/chat-message";
+import { ChatSidebar } from "../components/chat/chat-sidebar";
 import {
   createConversation,
   deleteConversation,
   listMessages,
   streamChatMessage,
 } from "../lib/api/chat";
-import { VerificationBadge } from "../components/verification-badge";
 import type { ChatMessage, ChatSource, Conversation } from "../lib/types/chat";
 import type { Member } from "../lib/types/member";
-import { INPUT_CLASS, cn, errorMessage } from "../lib/utils";
+import { errorMessage } from "../lib/utils";
 
 export default function Chat() {
   const { data: members } = useSWR<Member[]>("/members");
@@ -44,8 +35,6 @@ export default function Chat() {
     (c) =>
       !memberFilter || c.member_id === null || c.member_id === memberFilter,
   );
-  const memberName = (id: string | null) =>
-    id ? (members ?? []).find((m) => m.id === id)?.name : "Family";
 
   async function newChat() {
     setCreating(true);
@@ -76,99 +65,19 @@ export default function Chat() {
 
   return (
     <div className="flex h-full min-h-0 gap-6">
-      <aside
-        aria-label="Conversations"
-        className="flex w-64 shrink-0 flex-col gap-3"
-      >
-        <div className="flex items-center justify-between">
-          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <MessageCircle className="size-5 text-primary" aria-hidden />
-            Chat
-          </h1>
-          <button
-            type="button"
-            onClick={() => void newChat()}
-            disabled={creating}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {creating ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            ) : (
-              <MessageSquarePlus className="size-3.5" aria-hidden />
-            )}
-            New chat
-          </button>
-        </div>
-
-        <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-          Scope to member
-          <select
-            value={memberFilter}
-            onChange={(e) => setMemberFilter(e.target.value)}
-            className={INPUT_CLASS}
-          >
-            <option value="">All family</option>
-            {(members ?? []).map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {error && (
-          <p
-            role="alert"
-            className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger"
-          >
-            {error}
-          </p>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {conversationsLoading ? (
-            <p className="p-3 text-sm text-muted-foreground">Loading…</p>
-          ) : !conversations || conversations.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border bg-card p-4 text-center text-sm text-muted-foreground">
-              No conversations yet.
-            </p>
-          ) : (
-            <ul className="space-y-1.5">
-              {conversations.map((conversation) => (
-                <li key={conversation.id}>
-                  <div
-                    className={cn(
-                      "group flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors",
-                      selectedId === conversation.id
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/50",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(conversation.id)}
-                      className="min-w-0 flex-1 truncate text-left"
-                    >
-                      {conversation.title ?? "Untitled chat"}
-                      <span className="block truncate text-[11px] font-normal text-muted-foreground">
-                        {memberName(conversation.member_id)}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void removeConversation(conversation.id)}
-                      aria-label="Delete conversation"
-                      className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 hover:text-danger"
-                    >
-                      <Trash2 className="size-3.5" aria-hidden />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </aside>
+      <ChatSidebar
+        members={members}
+        conversations={conversations}
+        isLoading={conversationsLoading}
+        selectedId={selectedId}
+        memberFilter={memberFilter}
+        onMemberFilterChange={setMemberFilter}
+        creating={creating}
+        onNewChat={() => void newChat()}
+        onSelect={setSelectedId}
+        onDelete={(id) => void removeConversation(id)}
+        error={error}
+      />
 
       {selectedId ? (
         <ChatThread
@@ -328,53 +237,14 @@ export function ChatThread({
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="flex items-end gap-2 p-4">
-          <label className="flex-1 space-y-1.5">
-            <span className="sr-only">Message</span>
-            <textarea
-              rows={2}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  e.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder="Ask a question… (Enter to send, Shift+Enter for a new line)"
-              disabled={streaming}
-              className={cn(INPUT_CLASS, "resize-none")}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => setLookupOpen((open) => !open)}
-            aria-label={
-              lookupOpen ? "Hide reference lookup" : "Open reference lookup"
-            }
-            aria-pressed={lookupOpen}
-            title="Reference lookup"
-            className={`flex size-10 shrink-0 items-center justify-center rounded-lg border transition-colors ${
-              lookupOpen
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border bg-background text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <PanelRight className="size-4" aria-hidden />
-          </button>
-          <button
-            type="submit"
-            disabled={streaming || !draft.trim()}
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-            aria-label="Send message"
-          >
-            {streaming ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <Send className="size-4" aria-hidden />
-            )}
-          </button>
-        </form>
+        <ChatComposer
+          value={draft}
+          onChange={setDraft}
+          onSubmit={(event) => void handleSubmit(event)}
+          streaming={streaming}
+          lookupOpen={lookupOpen}
+          onToggleLookup={() => setLookupOpen((open) => !open)}
+        />
       </div>
 
       {lookupOpen && (
@@ -386,122 +256,3 @@ export function ChatThread({
     </div>
   );
 }
-
-function MessageBubble({
-  message,
-  memberId,
-  pendingLabel,
-  sources,
-}: {
-  message: ChatMessage;
-  memberId: string | null;
-  pendingLabel?: string | null;
-  sources?: ChatSource[];
-}) {
-  const isUser = message.role === "user";
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-1",
-        isUser ? "items-end" : "items-start",
-      )}
-    >
-      <div
-        className={cn(
-          "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
-          isUser
-            ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md bg-muted text-foreground",
-        )}
-      >
-        {isUser ? (
-          /* User messages stay plain text with preserved newlines. */
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        ) : (
-          /* Assistant replies render as GFM markdown (lists, tables, code). */
-          <Markdown>{message.content}</Markdown>
-        )}
-      </div>
-      {!isUser && (
-        <>
-          <div className="flex items-center gap-2">
-            {pendingLabel && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" aria-hidden />
-                {pendingLabel}
-              </span>
-            )}
-            {message.verification && (
-              <VerificationBadge verification={message.verification} />
-            )}
-          </div>
-          {message.verification?.id && (
-            <AuditPanel verificationId={message.verification.id} />
-          )}
-          {sources && sources.length > 0 && (
-            <SourcesList sources={sources} memberId={memberId} />
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Collapsible list of citations shown under a grounded assistant reply. */
-function SourcesList({
-  sources,
-  memberId,
-}: {
-  sources: ChatSource[];
-  memberId: string | null;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="max-w-[80%]">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <BookOpen className="size-3" aria-hidden />
-        Sources ({sources.length})
-      </button>
-      {open && (
-        <ul className="mt-1.5 space-y-1.5 rounded-lg border border-border bg-background p-2.5 text-xs">
-          {sources.map((source, index) => {
-            const chip = (
-              <>
-                <BookOpen className="size-3 shrink-0" aria-hidden />
-                {source.source ?? "Reference"}
-                {source.page != null && ` · p. ${source.page}`}
-              </>
-            );
-            return (
-              <li key={index}>
-                {source.record_id ? (
-                  <Link
-                    to={`/members/${memberId}/records/${source.record_id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 font-medium text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {chip}
-                  </Link>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 font-medium text-muted-foreground">
-                    {chip}
-                  </span>
-                )}
-                {source.snippet && (
-                  <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                    {source.snippet}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
