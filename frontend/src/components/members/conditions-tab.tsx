@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import useSWR from "swr";
 import {
   Activity,
@@ -396,26 +396,48 @@ function ConditionCard({
   );
 }
 
-function LinkedRecords({
-  memberId,
-  condition,
+/** One linkable entry in a ConditionLinker select. */
+interface LinkOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * The shared record/medication link flow: choice select plus link button,
+ * with busy/error handling. The selection resets after a successful link.
+ */
+function ConditionLinker({
+  icon,
+  heading,
+  ariaLabel,
+  emptyLabel,
+  options,
+  link,
+  linkLabel,
   onChanged,
+  footer,
 }: {
-  memberId: string;
-  condition: ConditionEpisode;
+  icon: ReactNode;
+  heading: string;
+  ariaLabel: string;
+  emptyLabel: string;
+  options: LinkOption[];
+  link: (id: string) => Promise<unknown>;
+  linkLabel: string;
   onChanged: () => void;
+  footer?: string;
 }) {
+  const [selectedId, setSelectedId] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [recordId, setRecordId] = useState("");
 
-  async function link() {
-    if (!recordId) return;
+  async function linkSelected() {
+    if (!selectedId) return;
     setLinkError(null);
     setBusy(true);
     try {
-      await linkRecordToCondition(memberId, condition.id, recordId);
-      setRecordId("");
+      await link(selectedId);
+      setSelectedId("");
       onChanged();
     } catch (err) {
       setLinkError(errorMessage(err, "Link failed."));
@@ -427,19 +449,27 @@ function LinkedRecords({
   return (
     <div className="space-y-2">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-        <Stethoscope className="size-3.5" aria-hidden />
-        Linked records ({condition.record_count})
+        {icon}
+        {heading}
       </p>
       <div className="flex gap-2">
-        <RecordLinkSelect
-          memberId={memberId}
-          value={recordId}
-          onChange={setRecordId}
-        />
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          aria-label={ariaLabel}
+          className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">{emptyLabel}</option>
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
-          disabled={busy || !recordId}
-          onClick={() => void link()}
+          disabled={busy || !selectedId}
+          onClick={() => void linkSelected()}
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
         >
           {busy ? (
@@ -447,7 +477,7 @@ function LinkedRecords({
           ) : (
             <Plus className="size-3.5" aria-hidden />
           )}
-          Link record
+          {linkLabel}
         </button>
       </div>
       {linkError && (
@@ -455,41 +485,41 @@ function LinkedRecords({
           {linkError}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
-        Re-linking a record to another episode moves the link automatically.
-      </p>
+      {footer && <p className="text-xs text-muted-foreground">{footer}</p>}
     </div>
   );
 }
 
-function RecordLinkSelect({
+function LinkedRecords({
   memberId,
-  value,
-  onChange,
+  condition,
+  onChanged,
 }: {
   memberId: string;
-  value: string;
-  onChange: (value: string) => void;
+  condition: ConditionEpisode;
+  onChanged: () => void;
 }) {
   const { data: records } = useSWR(
     memberId ? ["all-records", memberId] : null,
     ([, id]: [string, string]) => listRecords(id, { limit: 100 }),
   );
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label="Record to link"
-      className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
-    >
-      <option value="">Choose a record…</option>
-      {(records ?? []).map((record) => (
-        <option key={record.id} value={record.id}>
-          {recordTypeMeta(record.record_type).label} · {record.record_date}
-          {record.diagnosis ? ` · ${record.diagnosis}` : ""}
-        </option>
-      ))}
-    </select>
+    <ConditionLinker
+      icon={<Stethoscope className="size-3.5" aria-hidden />}
+      heading={`Linked records (${condition.record_count})`}
+      ariaLabel="Record to link"
+      emptyLabel="Choose a record…"
+      options={(records ?? []).map((record) => ({
+        id: record.id,
+        label: `${recordTypeMeta(record.record_type).label} · ${record.record_date}${record.diagnosis ? ` · ${record.diagnosis}` : ""}`,
+      }))}
+      link={(recordId) =>
+        linkRecordToCondition(memberId, condition.id, recordId)
+      }
+      linkLabel="Link record"
+      onChanged={onChanged}
+      footer="Re-linking a record to another episode moves the link automatically."
+    />
   );
 }
 
@@ -506,65 +536,21 @@ function LinkedMedications({
     memberId ? ["medications-all", memberId] : null,
     ([, id]: [string, string]) => listMedications(id),
   );
-  const [medicationId, setMedicationId] = useState("");
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function link() {
-    if (!medicationId) return;
-    setLinkError(null);
-    setBusy(true);
-    try {
-      await linkMedicationToCondition(memberId, condition.id, medicationId);
-      setMedicationId("");
-      onChanged();
-    } catch (err) {
-      setLinkError(errorMessage(err, "Link failed."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <div className="space-y-2">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-        <CheckCircle2 className="size-3.5" aria-hidden />
-        Linked medications ({condition.medication_count})
-      </p>
-      <div className="flex gap-2">
-        <select
-          value={medicationId}
-          onChange={(e) => setMedicationId(e.target.value)}
-          aria-label="Medication to link"
-          className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Choose a medication…</option>
-          {(medications ?? []).map((medication) => (
-            <option key={medication.id} value={medication.id}>
-              {medication.medicine}
-              {medication.dosage ? ` · ${medication.dosage}` : ""}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={busy || !medicationId}
-          onClick={() => void link()}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-50"
-        >
-          {busy ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Plus className="size-3.5" aria-hidden />
-          )}
-          Link medication
-        </button>
-      </div>
-      {linkError && (
-        <p role="alert" className="text-xs text-danger">
-          {linkError}
-        </p>
-      )}
-    </div>
+    <ConditionLinker
+      icon={<CheckCircle2 className="size-3.5" aria-hidden />}
+      heading={`Linked medications (${condition.medication_count})`}
+      ariaLabel="Medication to link"
+      emptyLabel="Choose a medication…"
+      options={(medications ?? []).map((medication) => ({
+        id: medication.id,
+        label: `${medication.medicine}${medication.dosage ? ` · ${medication.dosage}` : ""}`,
+      }))}
+      link={(medicationId) =>
+        linkMedicationToCondition(memberId, condition.id, medicationId)
+      }
+      linkLabel="Link medication"
+      onChanged={onChanged}
+    />
   );
 }

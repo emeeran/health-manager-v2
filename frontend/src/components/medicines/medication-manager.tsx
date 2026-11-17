@@ -146,6 +146,57 @@ const SCHEDULE_BADGES: Record<ScheduleType, string> = {
   cycle: "bg-primary/10 text-primary",
 };
 
+/** Toggle one slot in a canonical morning→bedtime sorted copy. */
+function toggleSlot(
+  slots: MedicationSlot[],
+  slot: MedicationSlot,
+): MedicationSlot[] {
+  return slots.includes(slot)
+    ? slots.filter((value) => value !== slot)
+    : [...slots, slot].sort(
+        (a, b) => MEDICATION_SLOTS.indexOf(a) - MEDICATION_SLOTS.indexOf(b),
+      );
+}
+
+/**
+ * Every assigned slot carries its clock time so the dose rings at exactly
+ * the time shown, not the household default.
+ */
+function assignedSlotTimes(
+  slots: MedicationSlot[],
+  slotTimes: Record<MedicationSlot, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    MEDICATION_SLOTS.filter((slot) => slots.includes(slot)).map((slot) => [
+      slot,
+      slotTimes[slot],
+    ]),
+  );
+}
+
+/**
+ * Shared submit mechanics for the add form and the edit dialog: clear the
+ * error, flip the submitting flag, surface failures, reset on completion.
+ */
+async function submitForm(
+  event: FormEvent<HTMLFormElement>,
+  run: () => Promise<void>,
+  setError: (error: string | null) => void,
+  setSubmitting: (submitting: boolean) => void,
+  fallback: string,
+): Promise<void> {
+  event.preventDefault();
+  setError(null);
+  setSubmitting(true);
+  try {
+    await run();
+  } catch (err) {
+    setError(errorMessage(err, fallback));
+  } finally {
+    setSubmitting(false);
+  }
+}
+
 function MedicationRow({
   memberId,
   medication,
@@ -308,44 +359,30 @@ function EditMedicationDialog({
   // Escape closes the dialog (routed through the global overlay stack).
   useEscClose(true, onClose);
 
-  function toggleSlot(slot: MedicationSlot) {
-    setSlots((current) =>
-      current.includes(slot)
-        ? current.filter((value) => value !== slot)
-        : [...current, slot].sort(
-            (a, b) => MEDICATION_SLOTS.indexOf(a) - MEDICATION_SLOTS.indexOf(b),
-          ),
-    );
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const assignedTimes = Object.fromEntries(
-        MEDICATION_SLOTS.filter((slot) => slots.includes(slot)).map((slot) => [
-          slot,
-          slotTimes[slot],
-        ]),
-      );
-      await updateMedication(memberId, medication.id, {
-        medicine,
-        dose_form: doseForm || null,
-        dosage: dosage || null,
-        timing: timing || null,
-        duration_days: durationDays ? Number(durationDays) : null,
-        provider_name: provider || null,
-        status,
-        ...(medication.schedule_type !== "prn"
-          ? { slots, slot_times: assignedTimes }
-          : {}),
-      });
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err, "Could not save changes."));
-      setSubmitting(false);
-    }
+    await submitForm(
+      event,
+      async () => {
+        // Slot edits rebuild the schedule server-side (taper/cycle params
+        // are preserved there).
+        await updateMedication(memberId, medication.id, {
+          medicine,
+          dose_form: doseForm || null,
+          dosage: dosage || null,
+          timing: timing || null,
+          duration_days: durationDays ? Number(durationDays) : null,
+          provider_name: provider || null,
+          status,
+          ...(medication.schedule_type !== "prn"
+            ? { slots, slot_times: assignedSlotTimes(slots, slotTimes) }
+            : {}),
+        });
+        onSaved();
+      },
+      setError,
+      setSubmitting,
+      "Could not save changes.",
+    );
   }
 
   return (
@@ -443,67 +480,16 @@ function EditMedicationDialog({
         </div>
 
         {medication.schedule_type !== "prn" && (
-          <fieldset className="mt-3">
-            <legend className="mb-1.5 text-sm font-medium">
-              Dose times — pick the slots and set each clock time
-            </legend>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {MEDICATION_SLOTS.map((slot) => {
-                const selected = slots.includes(slot);
-                return (
-                  <div
-                    key={slot}
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
-                      selected
-                        ? "border-primary bg-primary/5"
-                        : "border-border",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={selected}
-                      aria-label={SLOT_LABELS[slot]}
-                      onClick={() => toggleSlot(slot)}
-                      className={cn(
-                        "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
-                        selected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input bg-background",
-                      )}
-                    >
-                      {selected && <Check className="size-3" aria-hidden />}
-                    </button>
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-xs font-medium",
-                        !selected && "text-muted-foreground",
-                      )}
-                    >
-                      {SLOT_LABELS[slot]}
-                    </span>
-                    <input
-                      type="time"
-                      value={slotTimes[slot]}
-                      onChange={(e) =>
-                        setSlotTimes((current) => ({
-                          ...current,
-                          [slot]: e.target.value,
-                        }))
-                      }
-                      disabled={!selected}
-                      aria-label={`${SLOT_LABELS[slot]} dose time`}
-                      className={cn(
-                        "w-24 rounded-md border border-input bg-background px-1.5 py-1 font-mono text-xs tabular-nums outline-none focus:ring-2 focus:ring-ring",
-                        !selected && "opacity-40",
-                      )}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </fieldset>
+          <SlotPicker
+            slots={slots}
+            slotTimes={slotTimes}
+            onToggle={(slot) => setSlots((current) => toggleSlot(current, slot))}
+            onSlotTimeChange={(slot, time) =>
+              setSlotTimes((current) => ({ ...current, [slot]: time }))
+            }
+            legend="Dose times — pick the slots and set each clock time"
+            gridClassName="grid gap-1.5 sm:grid-cols-2"
+          />
         )}
 
         {error && (
@@ -538,6 +524,82 @@ function EditMedicationDialog({
   );
 }
 
+/**
+ * Slot toggles plus each assigned slot's editable clock time, shared by the
+ * add form and the edit dialog. The toggles are the source of truth for
+ * which slots are submitted.
+ */
+function SlotPicker({
+  slots,
+  slotTimes,
+  onToggle,
+  onSlotTimeChange,
+  legend,
+  gridClassName,
+}: {
+  slots: MedicationSlot[];
+  slotTimes: Record<MedicationSlot, string>;
+  onToggle: (slot: MedicationSlot) => void;
+  onSlotTimeChange: (slot: MedicationSlot, time: string) => void;
+  legend: string;
+  gridClassName: string;
+}) {
+  return (
+    <fieldset className="mt-3">
+      <legend className="mb-1.5 text-sm font-medium">{legend}</legend>
+      <div className={gridClassName}>
+        {MEDICATION_SLOTS.map((slot) => {
+          const selected = slots.includes(slot);
+          return (
+            <div
+              key={slot}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
+                selected ? "border-primary bg-primary/5" : "border-border",
+              )}
+            >
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={selected}
+                aria-label={SLOT_LABELS[slot]}
+                onClick={() => onToggle(slot)}
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input bg-background",
+                )}
+              >
+                {selected && <Check className="size-3" aria-hidden />}
+              </button>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-xs font-medium",
+                  !selected && "text-muted-foreground",
+                )}
+              >
+                {SLOT_LABELS[slot]}
+              </span>
+              <input
+                type="time"
+                value={slotTimes[slot]}
+                onChange={(e) => onSlotTimeChange(slot, e.target.value)}
+                disabled={!selected}
+                aria-label={`${SLOT_LABELS[slot]} dose time`}
+                className={cn(
+                  "w-24 rounded-md border border-input bg-background px-1.5 py-1 font-mono text-xs tabular-nums outline-none focus:ring-2 focus:ring-ring",
+                  !selected && "opacity-40",
+                )}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function AddMedicationForm({
   memberId,
   onCreated,
@@ -569,21 +631,9 @@ function AddMedicationForm({
   // name, dose, schedule — stays one short grid.
   const [showMore, setShowMore] = useState(false);
 
-  // The toggles are the source of truth for which slots are submitted;
-  // each assigned slot carries its editable clock time.
-  function toggleSlot(slot: MedicationSlot) {
-    setSlots((current) =>
-      current.includes(slot)
-        ? current.filter((value) => value !== slot)
-        : [...current, slot].sort(
-            (a, b) => MEDICATION_SLOTS.indexOf(a) - MEDICATION_SLOTS.indexOf(b),
-          ),
-    );
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
+  // Taper and cycle schedules carry extra parameters that must be complete
+  // before anything is submitted.
+  function validateSchedule(): string | null {
     if (scheduleType === "taper") {
       const required = [taperStart, taperStep, taperEveryDays, taperFloor];
       if (
@@ -591,8 +641,7 @@ function AddMedicationForm({
           (value) => value === "" || !Number.isFinite(Number(value)),
         )
       ) {
-        setError("Fill in all taper parameters with numbers.");
-        return;
+        return "Fill in all taper parameters with numbers.";
       }
     }
     if (scheduleType === "cycle") {
@@ -606,65 +655,69 @@ function AddMedicationForm({
         onDays < 1 ||
         offDays < 1
       ) {
-        setError("On/off days must be positive whole numbers.");
-        return;
+        return "On/off days must be positive whole numbers.";
       }
     }
-    setSubmitting(true);
-    try {
-      // Every assigned slot carries its clock time so the dose rings at
-      // exactly the time shown, not the household default.
-      const assignedTimes = Object.fromEntries(
-        MEDICATION_SLOTS.filter((slot) => slots.includes(slot)).map((slot) => [
-          slot,
-          slotTimes[slot],
-        ]),
-      );
-      await createMedication(memberId, {
-        medicine,
-        ...(doseForm ? { dose_form: doseForm } : {}),
-        ...(dosage ? { dosage } : {}),
-        ...(timing ? { timing } : {}),
-        ...(durationDays ? { duration_days: Number(durationDays) } : {}),
-        ...(startDate ? { start_date: startDate } : {}),
-        schedule_type: scheduleType,
-        ...(scheduleType !== "prn" && slots.length > 0 ? { slots } : {}),
-        ...(scheduleType !== "prn" && slots.length > 0
-          ? { slot_times: assignedTimes }
-          : {}),
-        ...(providerId
-          ? {
-              provider_name: providers?.find((p) => p.id === providerId)?.name,
-            }
-          : {}),
-        ...(scheduleType === "taper"
-          ? {
-              taper: {
-                doses_start: Number(taperStart),
-                step: Number(taperStep),
-                step_every_days: Number(taperEveryDays),
-                floor: Number(taperFloor),
-              },
-            }
-          : {}),
-        ...(scheduleType === "cycle"
-          ? { cycle: { on_days: Number(cycleOn), off_days: Number(cycleOff) } }
-          : {}),
-      });
-      setMedicine("");
-      setDoseForm("");
-      setDosage("");
-      setTiming("");
-      setDurationDays("");
-      setSlots(["morning"]);
-      setSlotTimes(DEFAULT_SLOT_TIMES);
-      setProviderId("");
-      onCreated();
-    } catch (err) {
-      setError(errorMessage(err, "Could not add medicine."));
-    } finally {
-      setSubmitting(false);
+    return null;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const validation = validateSchedule();
+    if (validation) {
+      event.preventDefault();
+      setError(validation);
+      return;
     }
+    await submitForm(
+      event,
+      async () => {
+        await createMedication(memberId, {
+          medicine,
+          ...(doseForm ? { dose_form: doseForm } : {}),
+          ...(dosage ? { dosage } : {}),
+          ...(timing ? { timing } : {}),
+          ...(durationDays ? { duration_days: Number(durationDays) } : {}),
+          ...(startDate ? { start_date: startDate } : {}),
+          schedule_type: scheduleType,
+          ...(scheduleType !== "prn" && slots.length > 0
+            ? { slots, slot_times: assignedSlotTimes(slots, slotTimes) }
+            : {}),
+          ...(providerId
+            ? {
+                provider_name: providers?.find((p) => p.id === providerId)
+                  ?.name,
+              }
+            : {}),
+          ...(scheduleType === "taper"
+            ? {
+                taper: {
+                  doses_start: Number(taperStart),
+                  step: Number(taperStep),
+                  step_every_days: Number(taperEveryDays),
+                  floor: Number(taperFloor),
+                },
+              }
+            : {}),
+          ...(scheduleType === "cycle"
+            ? {
+                cycle: { on_days: Number(cycleOn), off_days: Number(cycleOff) },
+              }
+            : {}),
+        });
+        setMedicine("");
+        setDoseForm("");
+        setDosage("");
+        setTiming("");
+        setDurationDays("");
+        setSlots(["morning"]);
+        setSlotTimes(DEFAULT_SLOT_TIMES);
+        setProviderId("");
+        onCreated();
+      },
+      setError,
+      setSubmitting,
+      "Could not add medicine.",
+    );
   }
 
   return (
@@ -784,65 +837,16 @@ function AddMedicationForm({
       </div>
 
       {scheduleType !== "prn" && (
-        <fieldset className="mt-3">
-          <legend className="mb-1.5 text-sm font-medium">
-            Timing — pick the slots and set each dose time
-          </legend>
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-            {MEDICATION_SLOTS.map((slot) => {
-              const selected = slots.includes(slot);
-              return (
-                <div
-                  key={slot}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
-                    selected ? "border-primary bg-primary/5" : "border-border",
-                  )}
-                >
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={selected}
-                    aria-label={SLOT_LABELS[slot]}
-                    onClick={() => toggleSlot(slot)}
-                    className={cn(
-                      "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input bg-background",
-                    )}
-                  >
-                    {selected && <Check className="size-3" aria-hidden />}
-                  </button>
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-xs font-medium",
-                      !selected && "text-muted-foreground",
-                    )}
-                  >
-                    {SLOT_LABELS[slot]}
-                  </span>
-                  <input
-                    type="time"
-                    value={slotTimes[slot]}
-                    onChange={(e) =>
-                      setSlotTimes((current) => ({
-                        ...current,
-                        [slot]: e.target.value,
-                      }))
-                    }
-                    disabled={!selected}
-                    aria-label={`${SLOT_LABELS[slot]} dose time`}
-                    className={cn(
-                      "w-24 rounded-md border border-input bg-background px-1.5 py-1 font-mono text-xs tabular-nums outline-none focus:ring-2 focus:ring-ring",
-                      !selected && "opacity-40",
-                    )}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </fieldset>
+        <SlotPicker
+          slots={slots}
+          slotTimes={slotTimes}
+          onToggle={(slot) => setSlots((current) => toggleSlot(current, slot))}
+          onSlotTimeChange={(slot, time) =>
+            setSlotTimes((current) => ({ ...current, [slot]: time }))
+          }
+          legend="Timing — pick the slots and set each dose time"
+          gridClassName="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3"
+        />
       )}
 
       {scheduleType === "taper" && (
